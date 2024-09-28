@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Robust Gaze Detection Test</title>
+    <title>WebGazer Calibration and Diagnostic</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,17 +12,18 @@
             align-items: center;
             padding: 20px;
         }
-        #loading-bar-container {
-            width: 300px;
-            height: 20px;
-            background-color: #ddd;
-            margin: 20px 0;
+        #calibration-points {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
         }
-        #loading-bar {
-            width: 0%;
-            height: 100%;
-            background-color: #4CAF50;
-            transition: width 0.1s;
+        .calibration-point {
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            border-radius: 50%;
+            cursor: pointer;
         }
         #debug {
             width: 80%;
@@ -40,10 +41,9 @@
     </style>
 </head>
 <body>
-    <h1>Robust Gaze Detection Test</h1>
-    <div id="loading-bar-container">
-        <div id="loading-bar"></div>
-    </div>
+    <h1>WebGazer Calibration and Diagnostic</h1>
+    <div id="calibration-points"></div>
+    <button id="start-calibration">Start Calibration</button>
     <button id="check-gaze">Check Gaze</button>
     <div id="debug"></div>
 
@@ -51,9 +51,9 @@
     <script>
         const debugElement = document.getElementById('debug');
         const checkGazeButton = document.getElementById('check-gaze');
-        const loadingBar = document.getElementById('loading-bar');
-        let progress = 0;
-        const meditationDuration = 10; // 10 seconds
+        const startCalibrationButton = document.getElementById('start-calibration');
+        const calibrationPointsContainer = document.getElementById('calibration-points');
+        let calibrationPoints = [];
 
         function log(message) {
             console.log(message);
@@ -61,46 +61,50 @@
             debugElement.scrollTop = debugElement.scrollHeight;
         }
 
-        function isGazeDetected() {
+        function createCalibrationPoints() {
+            for (let i = 0; i < 9; i++) {
+                const point = document.createElement('div');
+                point.className = 'calibration-point';
+                point.addEventListener('click', () => calibratePoint(i));
+                calibrationPointsContainer.appendChild(point);
+                calibrationPoints.push(point);
+            }
+        }
+
+        function calibratePoint(index) {
+            const point = calibrationPoints[index];
+            const rect = point.getBoundingClientRect();
+            const x = rect.left + rect.width / 2;
+            const y = rect.top + rect.height / 2;
+            webgazer.recordScreenPosition(x, y, 'click');
+            log(`Calibrated point ${index + 1} at (${x}, ${y})`);
+            point.style.backgroundColor = 'green';
+        }
+
+        function checkGaze() {
             try {
                 const prediction = webgazer.getCurrentPrediction();
                 if (prediction && prediction.x !== undefined && prediction.y !== undefined) {
                     log(`Gaze detected at (${prediction.x.toFixed(2)}, ${prediction.y.toFixed(2)})`);
-                    return true;
                 } else {
                     log('No valid gaze data available');
-                    return false;
                 }
+                logWebGazerState();
             } catch (error) {
                 log(`Error in gaze detection: ${error.message}`);
-                return false;
             }
         }
 
-        function checkGazeAndUpdateProgress() {
-            if (isGazeDetected()) {
-                progress += 0.1; // Increment by 0.1 seconds
-                updateProgressBar();
-            } else {
-                resetProgress();
+        function logWebGazerState() {
+            log('WebGazer State:');
+            log(`- Paused: ${webgazer.isReady()}`);
+            log(`- Video Elements: ${document.querySelectorAll('video').length}`);
+            log(`- Canvas Elements: ${document.querySelectorAll('canvas').length}`);
+            const videoElement = document.querySelector('video');
+            if (videoElement) {
+                log(`- Video Dimensions: ${videoElement.videoWidth}x${videoElement.videoHeight}`);
+                log(`- Video Ready State: ${videoElement.readyState}`);
             }
-        }
-
-        function updateProgressBar() {
-            const percentage = (progress / meditationDuration) * 100;
-            loadingBar.style.width = `${percentage}%`;
-            log(`Progress: ${percentage.toFixed(2)}%`);
-
-            if (progress >= meditationDuration) {
-                log('Meditation completed!');
-                checkGazeButton.disabled = true;
-            }
-        }
-
-        function resetProgress() {
-            progress = 0;
-            loadingBar.style.width = '0%';
-            log('Progress reset');
         }
 
         function initializeWebGazer() {
@@ -109,7 +113,9 @@
                 .begin()
                 .then(() => {
                     log('WebGazer initialized successfully');
+                    startCalibrationButton.disabled = false;
                     checkGazeButton.disabled = false;
+                    logWebGazerState();
                 })
                 .catch(error => {
                     log(`Error initializing WebGazer: ${error}`);
@@ -118,9 +124,17 @@
             webgazer.showVideo(true).showPredictionPoints(true);
         }
 
-        checkGazeButton.addEventListener('click', checkGazeAndUpdateProgress);
+        startCalibrationButton.addEventListener('click', () => {
+            calibrationPointsContainer.style.display = 'grid';
+            startCalibrationButton.disabled = true;
+            log('Please click on each red dot to calibrate WebGazer');
+        });
+
+        checkGazeButton.addEventListener('click', checkGaze);
+        startCalibrationButton.disabled = true;
         checkGazeButton.disabled = true;
 
+        createCalibrationPoints();
         document.addEventListener('DOMContentLoaded', initializeWebGazer);
     </script>
 </body>
