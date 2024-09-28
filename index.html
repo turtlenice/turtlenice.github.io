@@ -3,223 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebGazer with Adjusted Video and Calibration</title>
+    <title>Eye Tracking with WebGazer</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
             margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #f0f0f0;
         }
-        #custom-gaze-point {
-            position: fixed;
+
+        #gazeDot {
+            position: absolute;
             width: 20px;
             height: 20px;
             background-color: blue;
             border-radius: 50%;
             pointer-events: none;
-            transition: all 0.1s ease;
-        }
-        #calibration-point {
-            position: fixed;
-            width: 30px;
-            height: 30px;
-            background-color: green;
-            border-radius: 50%;
-            display: none;
-        }
-        #debug {
-            width: 80%;
-            height: 200px;
-            border: 1px solid #ccc;
-            overflow-y: scroll;
-            padding: 10px;
-            margin-top: 20px;
-        }
-        button {
-            margin-top: 10px;
-            padding: 10px 20px;
-            font-size: 16px;
-        }
-        #webgazerVideoContainer {
-            position: fixed !important;
-            top: 20px !important;
-            left: 20px !important;
-        }
-        #video-area-indicator {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            width: 320px;
-            height: 240px;
-            border: 2px solid red;
-            pointer-events: none;
         }
     </style>
 </head>
 <body>
-    <h1>WebGazer with Adjusted Video and Calibration</h1>
-    <button id="init-webgazer">Initialize WebGazer</button>
-    <button id="start-calibration" disabled>Start Calibration</button>
-    <button id="start-tracking" disabled>Start Tracking</button>
-    <div id="custom-gaze-point"></div>
-    <div id="calibration-point"></div>
-    <div id="video-area-indicator"></div>
-    <div id="debug"></div>
+
+    <div id="gazeDot"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
     <script>
-        const debugElement = document.getElementById('debug');
-        const initWebGazerButton = document.getElementById('init-webgazer');
-        const startCalibrationButton = document.getElementById('start-calibration');
-        const startTrackingButton = document.getElementById('start-tracking');
-        const customGazePoint = document.getElementById('custom-gaze-point');
-        const calibrationPoint = document.getElementById('calibration-point');
-
-        const videoTop = 20;
-        const videoLeft = 20;
-        const videoWidth = 320;
-        const videoHeight = 240;
-
-        function calculateCalibrationPoints() {
-            const margin = 50;
-            return [
-                {x: videoLeft + videoWidth + margin, y: margin},
-                {x: window.innerWidth - margin, y: margin},
-                {x: margin, y: window.innerHeight - margin},
-                {x: window.innerWidth - margin, y: window.innerHeight - margin},
-                {x: window.innerWidth / 2, y: window.innerHeight / 2}
-            ];
-        }
-
-        let calibrationPoints = calculateCalibrationPoints();
-        let currentCalibrationPoint = 0;
-
-        function log(message) {
-            console.log(message);
-            debugElement.innerHTML += message + '<br>';
-            debugElement.scrollTop = debugElement.scrollHeight;
-        }
-
-        function updateCustomGazePoint(x, y) {
-            customGazePoint.style.left = `${x}px`;
-            customGazePoint.style.top = `${y}px`;
-            log(`Custom gaze point updated to (${x.toFixed(2)}, ${y.toFixed(2)})`);
-        }
-
-        function initializeWebGazer() {
-            log('Initializing WebGazer...');
-            initWebGazerButton.disabled = true;
-
-            webgazer.setGazeListener(() => {})
-                .begin()
-                .then(() => {
-                    log('WebGazer initialized successfully');
-                    webgazer.showVideoPreview(true)
-                           .showPredictionPoints(true)
-                           .applyKalmanFilter(true);
-                    
-                    // Adjust video position
-                    const videoContainer = document.getElementById('webgazerVideoContainer');
-                    if (videoContainer) {
-                        videoContainer.style.position = 'fixed';
-                        videoContainer.style.top = `${videoTop}px`;
-                        videoContainer.style.left = `${videoLeft}px`;
-                    }
-                    
-                    startCalibrationButton.disabled = false;
-                    logWebGazerState();
-                })
-                .catch(error => {
-                    log(`Error initializing WebGazer: ${error}`);
-                    initWebGazerButton.disabled = false;
-                });
-        }
-
-        function startCalibration() {
-            log('Starting calibration...');
-            startCalibrationButton.disabled = true;
-            calibrationPoint.style.display = 'block';
-            currentCalibrationPoint = 0;
-            showNextCalibrationPoint();
-        }
-
-        function showNextCalibrationPoint() {
-            if (currentCalibrationPoint >= calibrationPoints.length) {
-                finishCalibration();
-                return;
-            }
-
-            const point = calibrationPoints[currentCalibrationPoint];
-            calibrationPoint.style.left = `${point.x}px`;
-            calibrationPoint.style.top = `${point.y}px`;
-
-            log(`Look at the green dot (${point.x}, ${point.y}) and click it`);
-
-            calibrationPoint.onclick = () => {
-                webgazer.recordScreenPosition(point.x, point.y, 'click');
-                currentCalibrationPoint++;
-                showNextCalibrationPoint();
-            };
-        }
-
-        function finishCalibration() {
-            log('Calibration complete');
-            calibrationPoint.style.display = 'none';
-            startTrackingButton.disabled = false;
-        }
-
-        function startTracking() {
-            log('Starting gaze tracking...');
-            startTrackingButton.disabled = true;
-
-            let smoothX = 0, smoothY = 0;
-            const smoothingFactor = 0.8;
-
-            webgazer.setGazeListener((data, elapsedTime) => {
+        window.onload = function() {
+            // Initialize WebGazer
+            webgazer.setGazeListener(function(data, elapsedTime) {
                 if (data == null) {
-                    log('Gaze data is null');
-                } else {
-                    log(`Raw gaze data: x=${data.x}, y=${data.y}`);
-                    smoothX = smoothX * smoothingFactor + data.x * (1 - smoothingFactor);
-                    smoothY = smoothY * smoothingFactor + data.y * (1 - smoothingFactor);
-                    updateCustomGazePoint(smoothX, smoothY);
+                    return;
                 }
-            });
-        }
 
-        function logWebGazerState() {
-            log('WebGazer State:');
-            log(`- Paused: ${webgazer.isReady()}`);
-            log(`- Video Elements: ${document.querySelectorAll('video').length}`);
-            log(`- Canvas Elements: ${document.querySelectorAll('canvas').length}`);
-            const videoElement = document.querySelector('video');
-            if (videoElement) {
-                log(`- Video Dimensions: ${videoElement.videoWidth}x${videoElement.videoHeight}`);
-                log(`- Video Ready State: ${videoElement.readyState}`);
-            }
-        }
+                // Get the predicted x and y coordinates
+                var x = data.x; // Gaze x location
+                var y = data.y; // Gaze y location
 
-        initWebGazerButton.addEventListener('click', initializeWebGazer);
-        startCalibrationButton.addEventListener('click', startCalibration);
-        startTrackingButton.addEventListener('click', startTracking);
+                // Update the position of the gaze dot
+                var gazeDot = document.getElementById('gazeDot');
+                gazeDot.style.left = (x - 10) + 'px'; // Offset to center the dot
+                gazeDot.style.top = (y - 10) + 'px';  // Offset to center the dot
+            }).begin();
 
-        // Error handling
-        window.addEventListener('unhandledrejection', function(event) {
-            log(`Unhandled promise rejection: ${event.reason}`);
-        });
-
-        window.onerror = function(message, source, lineno, colno, error) {
-            log(`Error: ${message} at ${source}:${lineno}:${colno}`);
-            return false;
+            // Hide WebGazer's default video feed and other elements
+            webgazer.showVideo(false).showFaceOverlay(false).showFaceFeedbackBox(false);
         };
-
-        // Recalculate calibration points on window resize
-        window.addEventListener('resize', () => {
-            calibrationPoints = calculateCalibrationPoints();
-        });
     </script>
 </body>
 </html>
