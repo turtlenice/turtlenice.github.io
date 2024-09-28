@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>xm</title>
+    <title>Meditiation</title>
     <style>
         body, html {
             height: 100%;
@@ -60,7 +60,7 @@
     <div id="loading-bar-container">
         <div id="loading-bar"></div>
     </div>
-    <div id="message">Center your face in the camera for 1 minute</div>
+    <div id="message">Keep your face within the middle 50% of the camera for 1 minute</div>
     <div id="debug"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
@@ -87,7 +87,7 @@
 
         function updateProgress() {
             loadingBar.style.width = `${(progress / meditationDuration) * 100}%`;
-            messageElement.textContent = `Centered focus maintained for ${progress} seconds`;
+            messageElement.textContent = `Face kept within bounds for ${progress} seconds`;
 
             if (progress >= meditationDuration) {
                 finishSession();
@@ -97,8 +97,8 @@
         function resetProgress() {
             progress = 0;
             loadingBar.style.width = "0%";
-            messageElement.textContent = "Center your face in the camera for 1 minute";
-            log("Progress reset - Face not centered");
+            messageElement.textContent = "Keep your face within the middle 50% of the camera for 1 minute";
+            log("Progress reset - Face outside bounds");
         }
 
         function finishSession() {
@@ -110,16 +110,11 @@
         }
 
         function isFaceCentered(x, y) {
-            const centerX = videoWidth / 2;
-            const centerY = videoHeight / 2;
-            const allowedDeviation = 0.25; // 25% deviation allowed
+            const quarterWidth = videoWidth / 4;
+            const quarterHeight = videoHeight / 4;
 
-            const minX = centerX - (videoWidth * allowedDeviation);
-            const maxX = centerX + (videoWidth * allowedDeviation);
-            const minY = centerY - (videoHeight * allowedDeviation);
-            const maxY = centerY + (videoHeight * allowedDeviation);
-
-            return x >= minX && x <= maxX && y >= minY && y <= maxY;
+            return (x >= quarterWidth && x <= 3 * quarterWidth) &&
+                   (y >= quarterHeight && y <= 3 * quarterHeight);
         }
 
         function updateCenteringHistory(isCentered) {
@@ -141,17 +136,17 @@
 
         function checkFaceDetection() {
             if (isConsistentlyUncentered()) {
-                log("Face consistently not centered");
+                log("Face consistently outside the middle 50%");
                 resetProgress();
             } else {
-                log("Face considered centered");
+                log("Face within the middle 50%");
                 progress += 1; // Increment by 1 second
                 updateProgress();
             }
         }
 
         function startTracking() {
-            log("Starting smoothed centered face detection...");
+            log("Starting face position tracking...");
             meditationInterval = setInterval(checkFaceDetection, checkInterval);
         }
 
@@ -159,7 +154,9 @@
             if (data !== null && data.x !== null && data.y !== null) {
                 const centered = isFaceCentered(data.x, data.y);
                 updateCenteringHistory(centered);
-                log(`Face ${centered ? 'centered' : 'not centered'} at (${data.x.toFixed(2)}, ${data.y.toFixed(2)})`);
+                const xPercentage = (data.x / videoWidth * 100).toFixed(2);
+                const yPercentage = (data.y / videoHeight * 100).toFixed(2);
+                log(`Face ${centered ? 'within' : 'outside'} bounds at (${xPercentage}%, ${yPercentage}%)`);
             }
         }).begin()
             .then(() => {
