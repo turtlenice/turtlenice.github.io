@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meditiation</title>
+    <title>Web Med</title>
     <style>
         body, html {
             height: 100%;
@@ -60,7 +60,7 @@
     <div id="loading-bar-container">
         <div id="loading-bar"></div>
     </div>
-    <div id="message">Keep your face within the middle 50% of the camera for 1 minute</div>
+    <div id="message">Keep your face within the green box for 1 minute</div>
     <div id="debug"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
@@ -72,12 +72,10 @@
         const debugElement = document.getElementById("debug");
         const meditationDuration = 60; // 1 minute in seconds
         const checkInterval = 1000; // Check every 1 second
-        let videoWidth = 320; // Default video width
-        let videoHeight = 240; // Default video height
 
-        const centeringHistory = [];
+        const faceDetectionHistory = [];
         const historyDuration = 3000; // 3 seconds of history
-        const centeringThreshold = 0.9; // 90% threshold for considering uncentered
+        const detectionThreshold = 0.9; // 90% threshold for considering face detected
 
         function log(message) {
             console.log(message);
@@ -97,7 +95,7 @@
         function resetProgress() {
             progress = 0;
             loadingBar.style.width = "0%";
-            messageElement.textContent = "Keep your face within the middle 50% of the camera for 1 minute";
+            messageElement.textContent = "Keep your face within the green box for 1 minute";
             log("Progress reset - Face outside bounds");
         }
 
@@ -109,69 +107,52 @@
             webgazer.end();
         }
 
-        function isFaceCentered(x, y) {
-            const quarterWidth = videoWidth / 4;
-            const quarterHeight = videoHeight / 4;
-
-            return (x >= quarterWidth && x <= 3 * quarterWidth) &&
-                   (y >= quarterHeight && y <= 3 * quarterHeight);
-        }
-
-        function updateCenteringHistory(isCentered) {
+        function updateFaceDetectionHistory(isDetected) {
             const now = Date.now();
-            centeringHistory.push({ time: now, centered: isCentered });
+            faceDetectionHistory.push({ time: now, detected: isDetected });
 
             // Remove old entries
-            while (centeringHistory.length > 0 && now - centeringHistory[0].time > historyDuration) {
-                centeringHistory.shift();
+            while (faceDetectionHistory.length > 0 && now - faceDetectionHistory[0].time > historyDuration) {
+                faceDetectionHistory.shift();
             }
         }
 
-        function isConsistentlyUncentered() {
-            if (centeringHistory.length === 0) return false;
+        function isFaceConsistentlyDetected() {
+            if (faceDetectionHistory.length === 0) return false;
 
-            const uncenterCount = centeringHistory.filter(entry => !entry.centered).length;
-            return (uncenterCount / centeringHistory.length) > centeringThreshold;
+            const detectedCount = faceDetectionHistory.filter(entry => entry.detected).length;
+            return (detectedCount / faceDetectionHistory.length) >= detectionThreshold;
         }
 
         function checkFaceDetection() {
-            if (isConsistentlyUncentered()) {
-                log("Face consistently outside the middle 50%");
-                resetProgress();
+            const feedbackBox = webgazer.getFeedbackBox();
+            if (feedbackBox && feedbackBox.style) {
+                const isDetected = feedbackBox.style.borderColor === "green";
+                updateFaceDetectionHistory(isDetected);
+                log(`Face ${isDetected ? 'detected' : 'not detected'} (Border: ${feedbackBox.style.borderColor})`);
+
+                if (isFaceConsistentlyDetected()) {
+                    progress += 1; // Increment by 1 second
+                    updateProgress();
+                } else {
+                    resetProgress();
+                }
             } else {
-                log("Face within the middle 50%");
-                progress += 1; // Increment by 1 second
-                updateProgress();
+                log("Unable to get feedback box information");
             }
         }
 
         function startTracking() {
-            log("Starting face position tracking...");
+            log("Starting face detection tracking...");
             meditationInterval = setInterval(checkFaceDetection, checkInterval);
         }
 
-        webgazer.setGazeListener((data, elapsedTime) => {
-            if (data !== null && data.x !== null && data.y !== null) {
-                const centered = isFaceCentered(data.x, data.y);
-                updateCenteringHistory(centered);
-                const xPercentage = (data.x / videoWidth * 100).toFixed(2);
-                const yPercentage = (data.y / videoHeight * 100).toFixed(2);
-                log(`Face ${centered ? 'within' : 'outside'} bounds at (${xPercentage}%, ${yPercentage}%)`);
-            }
-        }).begin()
+        webgazer.setGazeListener(() => {}).begin()
             .then(() => {
                 log("WebGazer initialized successfully");
                 webgazer.showVideo(true)
                        .showFaceOverlay(true)
                        .showFaceFeedbackBox(true);
-                
-                // Get actual video dimensions
-                const videoElement = document.querySelector('#webgazerVideoContainer video');
-                if (videoElement) {
-                    videoWidth = videoElement.videoWidth;
-                    videoHeight = videoElement.videoHeight;
-                    log(`Video dimensions: ${videoWidth}x${videoHeight}`);
-                }
 
                 // Adjust video position
                 const videoContainer = document.getElementById('webgazerVideoContainer');
