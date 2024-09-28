@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>zWebGazer Simplified Gaze Tracking</title>
+    <title>WzzebGazer with Calibration and Smoothing</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -19,6 +19,15 @@
             background-color: blue;
             border-radius: 50%;
             pointer-events: none;
+            transition: all 0.1s ease;
+        }
+        #calibration-point {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            border-radius: 50%;
+            display: none;
         }
         #debug {
             width: 80%;
@@ -36,21 +45,32 @@
     </style>
 </head>
 <body>
-    <h1>WebGazer Simplified Gaze Tracking</h1>
-    <button id="start-tracking">Start Tracking</button>
+    <h1>WebGazer with Calibration and Smoothing</h1>
+    <button id="start-calibration">Start Calibration</button>
+    <button id="start-tracking" disabled>Start Tracking</button>
     <div id="gaze-point"></div>
+    <div id="calibration-point"></div>
     <div id="debug"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
     <script>
         const debugElement = document.getElementById('debug');
+        const startCalibrationButton = document.getElementById('start-calibration');
         const startTrackingButton = document.getElementById('start-tracking');
         const gazePoint = document.getElementById('gaze-point');
+        const calibrationPoint = document.getElementById('calibration-point');
+
+        let calibrationPoints = [
+            {x: 50, y: 50}, {x: 50, y: window.innerHeight - 50},
+            {x: window.innerWidth - 50, y: 50}, {x: window.innerWidth - 50, y: window.innerHeight - 50},
+            {x: window.innerWidth / 2, y: window.innerHeight / 2}
+        ];
+        let currentCalibrationPoint = 0;
 
         function log(message) {
             console.log(message);
             debugElement.innerHTML += message + '<br>';
-            debugElement.scrollHeight = debugElement.scrollHeight;
+            debugElement.scrollTop = debugElement.scrollHeight;
         }
 
         function updateGazePoint(x, y) {
@@ -59,54 +79,66 @@
             log(`Gaze detected at (${x.toFixed(2)}, ${y.toFixed(2)})`);
         }
 
-        function logWebGazerState() {
-            log('WebGazer State:');
-            log(`- Paused: ${webgazer.isReady()}`);
-            log(`- Video Elements: ${document.querySelectorAll('video').length}`);
-            log(`- Canvas Elements: ${document.querySelectorAll('canvas').length}`);
-            const videoElement = document.querySelector('video');
-            if (videoElement) {
-                log(`- Video Dimensions: ${videoElement.videoWidth}x${videoElement.videoHeight}`);
-                log(`- Video Ready State: ${videoElement.readyState}`);
+        function startCalibration() {
+            log('Starting calibration...');
+            startCalibrationButton.disabled = true;
+            calibrationPoint.style.display = 'block';
+            showNextCalibrationPoint();
+        }
+
+        function showNextCalibrationPoint() {
+            if (currentCalibrationPoint >= calibrationPoints.length) {
+                finishCalibration();
+                return;
             }
+
+            const point = calibrationPoints[currentCalibrationPoint];
+            calibrationPoint.style.left = `${point.x}px`;
+            calibrationPoint.style.top = `${point.y}px`;
+
+            setTimeout(() => {
+                webgazer.recordScreenPosition(point.x, point.y, 'click');
+                currentCalibrationPoint++;
+                showNextCalibrationPoint();
+            }, 2000);
+        }
+
+        function finishCalibration() {
+            log('Calibration complete');
+            calibrationPoint.style.display = 'none';
+            startTrackingButton.disabled = false;
         }
 
         function startTracking() {
-            log('Initializing WebGazer...');
+            log('Starting gaze tracking...');
+            startTrackingButton.disabled = true;
+
+            let smoothX = 0, smoothY = 0;
+            const smoothingFactor = 0.8;
+
             webgazer.setGazeListener((data, elapsedTime) => {
                 if (data == null) {
                     log('Gaze data is null');
                 } else {
-                    updateGazePoint(data.x, data.y);
+                    smoothX = smoothX * smoothingFactor + data.x * (1 - smoothingFactor);
+                    smoothY = smoothY * smoothingFactor + data.y * (1 - smoothingFactor);
+                    updateGazePoint(smoothX, smoothY);
                 }
-            })
-            .saveDataAcrossSessions(true)
-            .begin()
-            .then(() => {
-                log('WebGazer initialized successfully');
-                startTrackingButton.disabled = true;
-                logWebGazerState();
-            })
-            .catch(error => {
-                log(`Error initializing WebGazer: ${error}`);
-            });
+            }).begin();
 
             webgazer.showVideoPreview(true)
                     .showPredictionPoints(true)
                     .applyKalmanFilter(true);
-            
-            // Set up an interval to log WebGazer state periodically
-            setInterval(logWebGazerState, 5000);
         }
 
+        startCalibrationButton.addEventListener('click', startCalibration);
         startTrackingButton.addEventListener('click', startTracking);
 
-        // Error handling for unhandled promise rejections
+        // Error handling
         window.addEventListener('unhandledrejection', function(event) {
             log(`Unhandled promise rejection: ${event.reason}`);
         });
 
-        // Log any errors that occur
         window.onerror = function(message, source, lineno, colno, error) {
             log(`Error: ${message} at ${source}:${lineno}:${colno}`);
             return false;
