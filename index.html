@@ -1,62 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Med</title>
+    <!-- (Same as before) -->
     <style>
-        body, html {
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #f0f0f0;
-            margin: 0;
-            font-family: Arial, sans-serif;
-            flex-direction: column;
-        }
-
-        #loading-bar-container {
-            width: 300px;
-            height: 20px;
-            background-color: #ddd;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 20px;
-        }
-
-        #loading-bar {
-            width: 0%;
-            height: 100%;
-            background-color: #4CAF50;
-            transition: width 0.5s;
-        }
-
-        #message {
-            text-align: center;
-            font-size: 24px;
-            color: #333;
-            margin-bottom: 20px;
-        }
-
-        #debug {
-            width: 80%;
-            height: 200px;
-            border: 1px solid #ccc;
-            overflow-y: scroll;
-            padding: 10px;
-            margin-top: 20px;
-            font-size: 14px;
-        }
+        /* (Same as before) */
     </style>
 </head>
 <body>
-    <div id="loading-bar-container">
-        <div id="loading-bar"></div>
-    </div>
-    <div id="message">Keep your face visible for 1 minute</div>
-    <div id="debug"></div>
-
+    <!-- (Same as before) -->
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
     <script>
         let progress = 0;
@@ -75,7 +26,7 @@
 
         function updateProgress() {
             loadingBar.style.width = `${(progress / meditationDuration) * 100}%`;
-            messageElement.textContent = `Face detected for ${progress} seconds`;
+            messageElement.textContent = `Focus maintained for ${progress} seconds`;
 
             if (progress >= meditationDuration) {
                 finishSession();
@@ -85,8 +36,8 @@
         function resetProgress() {
             progress = 0;
             loadingBar.style.width = "0%";
-            messageElement.textContent = "Keep your face visible for 1 minute";
-            log("Progress reset - Face not detected");
+            messageElement.textContent = "Focus on the camera for 1 minute";
+            log("Progress reset");
         }
 
         function finishSession() {
@@ -98,32 +49,69 @@
         }
 
         function checkFaceDetection() {
-            const tracker = webgazer.getTracker();
-            if (tracker && tracker.getEyePatches) {
-                const eyePatches = tracker.getEyePatches();
-                if (eyePatches && (eyePatches.left || eyePatches.right)) {
-                    log("Face detected (eyes found)");
-                    progress += 1;
-                    updateProgress();
-                    return;
+            const positions = webgazer.getTracker().clm.getCurrentPosition();
+            if (positions && positions.length > 0) {
+                // Compute average x and y positions
+                let sumX = 0, sumY = 0;
+                for (let i = 0; i < positions.length; i++) {
+                    sumX += positions[i][0];
+                    sumY += positions[i][1];
                 }
+                const avgX = sumX / positions.length;
+                const avgY = sumY / positions.length;
+
+                // Get video dimensions
+                const overlay = document.getElementById('webgazerFaceOverlay');
+                if (overlay) {
+                    const videoWidth = overlay.width;
+                    const videoHeight = overlay.height;
+
+                    // Determine middle 60% area
+                    const leftBoundary = videoWidth * 0.2;
+                    const rightBoundary = videoWidth * 0.8;
+                    const topBoundary = videoHeight * 0.2;
+                    const bottomBoundary = videoHeight * 0.8;
+
+                    if (avgX > leftBoundary && avgX < rightBoundary &&
+                        avgY > topBoundary && avgY < bottomBoundary) {
+                        // Face is in the middle area
+                        log("Face detected in the middle area");
+                        progress += 1; // Increment by 1 second
+                        updateProgress();
+                    } else {
+                        // Face is detected but not in middle area
+                        log("Face detected but not in the middle area");
+                        resetProgress();
+                    }
+                } else {
+                    log("Overlay element not found");
+                    resetProgress();
+                }
+            } else {
+                log("No face detected");
+                resetProgress();
             }
-            
-            log("Face not detected (eyes not found)");
-            resetProgress();
         }
 
         function startTracking() {
-            log("Starting face detection tracking...");
+            log("Starting face detection...");
             meditationInterval = setInterval(checkFaceDetection, checkInterval);
         }
 
-        webgazer.setGazeListener(() => {}).begin()
+        webgazer.begin()
             .then(() => {
                 log("WebGazer initialized successfully");
                 webgazer.showVideo(true)
                        .showFaceOverlay(true)
                        .showFaceFeedbackBox(true);
+
+                // Adjust video position
+                const videoContainer = document.getElementById('webgazerVideoContainer');
+                if (videoContainer) {
+                    videoContainer.style.position = 'fixed';
+                    videoContainer.style.top = '20px';
+                    videoContainer.style.left = '20px';
+                }
 
                 startTracking();
             })
