@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Med</title>
+    <title>Med</title>
     <style>
         body, html {
             height: 100%;
@@ -60,7 +60,7 @@
     <div id="loading-bar-container">
         <div id="loading-bar"></div>
     </div>
-    <div id="message">Keep your face within the green box for 1 minute</div>
+    <div id="message">Keep your face visible to the camera for 1 minute</div>
     <div id="debug"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
@@ -85,7 +85,7 @@
 
         function updateProgress() {
             loadingBar.style.width = `${(progress / meditationDuration) * 100}%`;
-            messageElement.textContent = `Face kept within bounds for ${progress} seconds`;
+            messageElement.textContent = `Face kept visible for ${progress} seconds`;
 
             if (progress >= meditationDuration) {
                 finishSession();
@@ -95,8 +95,8 @@
         function resetProgress() {
             progress = 0;
             loadingBar.style.width = "0%";
-            messageElement.textContent = "Keep your face within the green box for 1 minute";
-            log("Progress reset - Face outside bounds");
+            messageElement.textContent = "Keep your face visible to the camera for 1 minute";
+            log("Progress reset - Face not detected");
         }
 
         function finishSession() {
@@ -125,20 +125,16 @@
         }
 
         function checkFaceDetection() {
-            const feedbackBox = webgazer.getFeedbackBox();
-            if (feedbackBox && feedbackBox.style) {
-                const isDetected = feedbackBox.style.borderColor === "green";
-                updateFaceDetectionHistory(isDetected);
-                log(`Face ${isDetected ? 'detected' : 'not detected'} (Border: ${feedbackBox.style.borderColor})`);
+            const prediction = webgazer.getCurrentPrediction();
+            const isDetected = prediction !== null && prediction.x !== null && prediction.y !== null;
+            updateFaceDetectionHistory(isDetected);
+            log(`Face ${isDetected ? 'detected' : 'not detected'}`);
 
-                if (isFaceConsistentlyDetected()) {
-                    progress += 1; // Increment by 1 second
-                    updateProgress();
-                } else {
-                    resetProgress();
-                }
+            if (isFaceConsistentlyDetected()) {
+                progress += 1; // Increment by 1 second
+                updateProgress();
             } else {
-                log("Unable to get feedback box information");
+                resetProgress();
             }
         }
 
@@ -152,7 +148,7 @@
                 log("WebGazer initialized successfully");
                 webgazer.showVideo(true)
                        .showFaceOverlay(true)
-                       .showFaceFeedbackBox(true);
+                       .showPredictionPoints(true);
 
                 // Adjust video position
                 const videoContainer = document.getElementById('webgazerVideoContainer');
