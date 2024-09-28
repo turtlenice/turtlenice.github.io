@@ -74,37 +74,62 @@
 
             // Initialize WebGazer
             function startEyeTracking() {
+                console.log("Turtle");
+    // Check if WebGazer is supported in the browser
+    if (!webgazer) {
+        console.error("WebGazer library failed to load.");
+        return;
+    }
 
-                while (gazeDetected == false) {
-                    
-                console.log("started");
+    // Begin WebGazer and set up the gaze listener
     webgazer.setGazeListener((data, elapsedTime) => {
-        if (data == null) {
+        if (!data) {
+            // No gaze data available, likely the gaze is not being tracked properly
             console.log("No gaze data detected.");
             gazeDetected = false;
             resetProgress();
             return;
         }
 
-        if (x >= 0 && x <= window.innerWidth && y >= 0 && y <= window.innerHeight) {
-            gazeDetected = true;
-        }
-
-    }
-
+        // Extract gaze coordinates (x, y)
         const x = data.x;
         const y = data.y;
-        console.log("Gaze coordinates: ", x, y); // Log coordinates for debugging
+        console.log(`Gaze detected at coordinates: (${x}, ${y})`);
 
-        // Check if gaze is within the viewport
+        // Check if the gaze is within the viewport (the visible part of the browser window)
         if (x >= 0 && x <= window.innerWidth && y >= 0 && y <= window.innerHeight) {
+            // Gaze is detected within the visible window
             gazeDetected = true;
+            console.log("Gaze detected within viewport.");
         } else {
+            // Gaze is outside the viewport or inaccurate
+            console.log("Gaze detected outside viewport.");
             gazeDetected = false;
             resetProgress();
         }
-    }).begin();
-    console.log("WebGazer initialized");
+    }).begin()
+    .then(() => {
+        console.log("WebGazer successfully initialized.");
+    })
+    .catch((err) => {
+        console.error("Error initializing WebGazer:", err);
+    });
+
+    // Optional: Hide the WebGazer video preview and prediction points
+    webgazer.showVideo(false).showPredictionPoints(false);
+
+    // WebGazer requires the camera, make sure permissions are granted
+    // You can also handle permission issues by adding an event or a fallback mechanism
+    navigator.permissions.query({ name: "camera" }).then(permissionStatus => {
+        if (permissionStatus.state === "granted") {
+            console.log("Camera access granted.");
+        } else {
+            console.error("Camera access denied. WebGazer will not function.");
+            alert("Please grant camera access for gaze tracking to work.");
+        }
+    });
+
+    // You might want to add some calibration steps here to improve gaze accuracy
 }
 
             // Update the progress bar based on time and eye tracking
