@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Med</title>
+    <title>MedX</title>
     <style>
         body, html {
             height: 100%;
@@ -60,7 +60,7 @@
     <div id="loading-bar-container">
         <div id="loading-bar"></div>
     </div>
-    <div id="message">Keep your face visible to the camera for 1 minute</div>
+    <div id="message">Keep your face within the green box for 1 minute</div>
     <div id="debug"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
@@ -73,10 +73,6 @@
         const meditationDuration = 60; // 1 minute in seconds
         const checkInterval = 1000; // Check every 1 second
 
-        const faceDetectionHistory = [];
-        const historyDuration = 3000; // 3 seconds of history
-        const detectionThreshold = 0.9; // 90% threshold for considering face detected
-
         function log(message) {
             console.log(message);
             debugElement.innerHTML += message + '<br>';
@@ -85,7 +81,7 @@
 
         function updateProgress() {
             loadingBar.style.width = `${(progress / meditationDuration) * 100}%`;
-            messageElement.textContent = `Face kept visible for ${progress} seconds`;
+            messageElement.textContent = `Face kept within green box for ${progress} seconds`;
 
             if (progress >= meditationDuration) {
                 finishSession();
@@ -95,8 +91,8 @@
         function resetProgress() {
             progress = 0;
             loadingBar.style.width = "0%";
-            messageElement.textContent = "Keep your face visible to the camera for 1 minute";
-            log("Progress reset - Face not detected");
+            messageElement.textContent = "Keep your face within the green box for 1 minute";
+            log("Progress reset - Face outside green box");
         }
 
         function finishSession() {
@@ -107,33 +103,20 @@
             webgazer.end();
         }
 
-        function updateFaceDetectionHistory(isDetected) {
-            const now = Date.now();
-            faceDetectionHistory.push({ time: now, detected: isDetected });
-
-            // Remove old entries
-            while (faceDetectionHistory.length > 0 && now - faceDetectionHistory[0].time > historyDuration) {
-                faceDetectionHistory.shift();
-            }
-        }
-
-        function isFaceConsistentlyDetected() {
-            if (faceDetectionHistory.length === 0) return false;
-
-            const detectedCount = faceDetectionHistory.filter(entry => entry.detected).length;
-            return (detectedCount / faceDetectionHistory.length) >= detectionThreshold;
-        }
-
         function checkFaceDetection() {
-            const prediction = webgazer.getCurrentPrediction();
-            const isDetected = prediction !== null && prediction.x !== null && prediction.y !== null;
-            updateFaceDetectionHistory(isDetected);
-            log(`Face ${isDetected ? 'detected' : 'not detected'}`);
-
-            if (isFaceConsistentlyDetected()) {
-                progress += 1; // Increment by 1 second
-                updateProgress();
+            const faceFeedbackBox = document.querySelector('.faceFeedbackBox');
+            if (faceFeedbackBox) {
+                const boxColor = window.getComputedStyle(faceFeedbackBox).borderColor;
+                log(`Feedback box color: ${boxColor}`);
+                
+                if (boxColor === 'rgb(0, 128, 0)' || boxColor === 'green') { // Green box
+                    progress += 1;
+                    updateProgress();
+                } else {
+                    resetProgress();
+                }
             } else {
+                log("Feedback box not found");
                 resetProgress();
             }
         }
@@ -148,17 +131,18 @@
                 log("WebGazer initialized successfully");
                 webgazer.showVideo(true)
                        .showFaceOverlay(true)
-                       .showPredictionPoints(true);
+                       .showFaceFeedbackBox(true);
 
-                // Adjust video position
-                const videoContainer = document.getElementById('webgazerVideoContainer');
-                if (videoContainer) {
-                    videoContainer.style.position = 'fixed';
-                    videoContainer.style.top = '20px';
-                    videoContainer.style.left = '20px';
-                }
-
-                startTracking();
+                // Give WebGazer a moment to set up the video and overlay
+                setTimeout(() => {
+                    const videoContainer = document.getElementById('webgazerVideoContainer');
+                    if (videoContainer) {
+                        videoContainer.style.position = 'fixed';
+                        videoContainer.style.top = '20px';
+                        videoContainer.style.left = '20px';
+                    }
+                    startTracking();
+                }, 2000);
             })
             .catch(error => {
                 log(`Error initializing WebGazer: ${error}`);
