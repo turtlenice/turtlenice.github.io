@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Face Detection Meditation Timer</title>
+    <title>Med</title>
     <style>
         body, html {
             height: 100%;
@@ -62,6 +62,7 @@
     </div>
     <div id="message">Focus on the camera for 1 minute</div>
     <div id="debug"></div>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
     <script>
         let progress = 0;
@@ -71,6 +72,8 @@
         const debugElement = document.getElementById("debug");
         const meditationDuration = 60; // 1 minute in seconds
         const checkInterval = 1000; // Check every 1 second
+
+        let video; // Video element from WebGazer
 
         function log(message) {
             console.log(message);
@@ -102,43 +105,41 @@
             webgazer.end();
         }
 
-        function checkFaceDetection() {
-            const positions = webgazer.getTracker().clm.getCurrentPosition();
-            if (positions && positions.length > 0) {
-                // Compute average x and y positions
-                let sumX = 0, sumY = 0;
-                for (let i = 0; i < positions.length; i++) {
-                    sumX += positions[i][0];
-                    sumY += positions[i][1];
-                }
-                const avgX = sumX / positions.length;
-                const avgY = sumY / positions.length;
+        async function checkFaceDetection() {
+            if (!video || video.readyState !== 4) {
+                log("Video not ready");
+                resetProgress();
+                return;
+            }
 
-                // Get video dimensions
-                const overlay = document.getElementById('webgazerFaceOverlay');
-                if (overlay) {
-                    const videoWidth = overlay.width;
-                    const videoHeight = overlay.height;
+            const displaySize = { width: video.videoWidth, height: video.videoHeight };
 
-                    // Determine middle 60% area
-                    const leftBoundary = videoWidth * 0.2;
-                    const rightBoundary = videoWidth * 0.8;
-                    const topBoundary = videoHeight * 0.2;
-                    const bottomBoundary = videoHeight * 0.8;
+            // Detect faces
+            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
 
-                    if (avgX > leftBoundary && avgX < rightBoundary &&
-                        avgY > topBoundary && avgY < bottomBoundary) {
-                        // Face is in the middle area
-                        log("Face detected in the middle area");
-                        progress += 1; // Increment by 1 second
-                        updateProgress();
-                    } else {
-                        // Face is detected but not in middle area
-                        log("Face detected but not in the middle area");
-                        resetProgress();
-                    }
+            if (detections && detections.length > 0) {
+                // Get the first detected face
+                const face = detections[0].box;
+
+                // Determine middle 60% area
+                const leftBoundary = displaySize.width * 0.2;
+                const rightBoundary = displaySize.width * 0.8;
+                const topBoundary = displaySize.height * 0.2;
+                const bottomBoundary = displaySize.height * 0.8;
+
+                // Get center of the face
+                const faceCenterX = face.x + face.width / 2;
+                const faceCenterY = face.y + face.height / 2;
+
+                if (faceCenterX > leftBoundary && faceCenterX < rightBoundary &&
+                    faceCenterY > topBoundary && faceCenterY < bottomBoundary) {
+                    // Face is in the middle area
+                    log("Face detected in the middle area");
+                    progress += 1; // Increment by 1 second
+                    updateProgress();
                 } else {
-                    log("Overlay element not found");
+                    // Face is detected but not in middle area
+                    log("Face detected but not in the middle area");
                     resetProgress();
                 }
             } else {
@@ -147,8 +148,11 @@
             }
         }
 
-        function startTracking() {
+        async function startTracking() {
             log("Starting face detection...");
+            // Load face-api.js models
+            await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js/models');
+
             meditationInterval = setInterval(checkFaceDetection, checkInterval);
         }
 
@@ -158,6 +162,9 @@
                 webgazer.showVideo(true)
                        .showFaceOverlay(true)
                        .showFaceFeedbackBox(true);
+
+                // Get the video element
+                video = document.getElementById('webgazerVideoFeed');
 
                 // Adjust video position
                 const videoContainer = document.getElementById('webgazerVideoContainer');
