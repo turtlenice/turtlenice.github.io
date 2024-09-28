@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Continuous WebGazer Diagnostic</title>
+    <title>WebGazer Direct Data Access</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,19 +11,6 @@
             flex-direction: column;
             align-items: center;
             padding: 20px;
-        }
-        #calibration-points {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        .calibration-point {
-            width: 20px;
-            height: 20px;
-            background-color: red;
-            border-radius: 50%;
-            cursor: pointer;
         }
         #gaze-point {
             position: fixed;
@@ -49,9 +36,7 @@
     </style>
 </head>
 <body>
-    <h1>Continuous WebGazer Diagnostic</h1>
-    <div id="calibration-points"></div>
-    <button id="start-calibration">Start Calibration</button>
+    <h1>WebGazer Direct Data Access</h1>
     <button id="toggle-gaze-tracking">Start Gaze Tracking</button>
     <div id="gaze-point"></div>
     <div id="debug"></div>
@@ -59,11 +44,8 @@
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
     <script>
         const debugElement = document.getElementById('debug');
-        const startCalibrationButton = document.getElementById('start-calibration');
         const toggleGazeTrackingButton = document.getElementById('toggle-gaze-tracking');
-        const calibrationPointsContainer = document.getElementById('calibration-points');
         const gazePoint = document.getElementById('gaze-point');
-        let calibrationPoints = [];
         let isTracking = false;
         let trackingInterval;
 
@@ -73,35 +55,28 @@
             debugElement.scrollTop = debugElement.scrollHeight;
         }
 
-        function createCalibrationPoints() {
-            for (let i = 0; i < 9; i++) {
-                const point = document.createElement('div');
-                point.className = 'calibration-point';
-                point.addEventListener('click', () => calibratePoint(i));
-                calibrationPointsContainer.appendChild(point);
-                calibrationPoints.push(point);
-            }
-        }
-
-        function calibratePoint(index) {
-            const point = calibrationPoints[index];
-            const rect = point.getBoundingClientRect();
-            const x = rect.left + rect.width / 2;
-            const y = rect.top + rect.height / 2;
-            webgazer.recordScreenPosition(x, y, 'click');
-            log(`Calibrated point ${index + 1} at (${x}, ${y})`);
-            point.style.backgroundColor = 'green';
-        }
-
         function checkGaze() {
             try {
+                // Directly access WebGazer's internal data
+                const currentGazeData = window.webgazer.getTracker().getEyePatches();
+                if (currentGazeData && currentGazeData.eyePatches) {
+                    const { x, y } = currentGazeData.eyePatches;
+                    gazePoint.style.left = `${x}px`;
+                    gazePoint.style.top = `${y}px`;
+                    log(`Gaze detected at (${x.toFixed(2)}, ${y.toFixed(2)})`);
+                    
+                    // Log additional data for debugging
+                    log(`Raw gaze data: ${JSON.stringify(currentGazeData)}`);
+                } else {
+                    log('No valid gaze data available in internal tracker');
+                }
+
+                // Also check getCurrentPrediction for comparison
                 const prediction = webgazer.getCurrentPrediction();
                 if (prediction && prediction.x !== undefined && prediction.y !== undefined) {
-                    gazePoint.style.left = `${prediction.x}px`;
-                    gazePoint.style.top = `${prediction.y}px`;
-                    log(`Gaze detected at (${prediction.x.toFixed(2)}, ${prediction.y.toFixed(2)})`);
+                    log(`getCurrentPrediction: (${prediction.x.toFixed(2)}, ${prediction.y.toFixed(2)})`);
                 } else {
-                    log('No valid gaze data available');
+                    log('No valid data from getCurrentPrediction');
                 }
             } catch (error) {
                 log(`Error in gaze detection: ${error.message}`);
@@ -126,7 +101,6 @@
                 .begin()
                 .then(() => {
                     log('WebGazer initialized successfully');
-                    startCalibrationButton.disabled = false;
                     toggleGazeTrackingButton.disabled = false;
                     logWebGazerState();
                 })
@@ -153,17 +127,9 @@
             }
         }
 
-        startCalibrationButton.addEventListener('click', () => {
-            calibrationPointsContainer.style.display = 'grid';
-            startCalibrationButton.disabled = true;
-            log('Please click on each red dot to calibrate WebGazer');
-        });
-
         toggleGazeTrackingButton.addEventListener('click', toggleGazeTracking);
-        startCalibrationButton.disabled = true;
         toggleGazeTrackingButton.disabled = true;
 
-        createCalibrationPoints();
         document.addEventListener('DOMContentLoaded', initializeWebGazer);
     </script>
 </body>
