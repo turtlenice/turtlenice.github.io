@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebGazer with Custom Gaze Visualization</title>
+    <title>vebGazer with Adjusted Video Position</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -11,6 +11,7 @@
             flex-direction: column;
             align-items: center;
             padding: 20px;
+            margin: 0;
         }
         #custom-gaze-point {
             position: fixed;
@@ -42,10 +43,15 @@
             padding: 10px 20px;
             font-size: 16px;
         }
+        #webgazerVideoContainer {
+            position: fixed !important;
+            top: 100px !important;
+            left: 100px !important;
+        }
     </style>
 </head>
 <body>
-    <h1>WebGazer with Custom Gaze Visualization</h1>
+    <h1>WebGazer with Adjusted Video Position</h1>
     <button id="init-webgazer">Initialize WebGazer</button>
     <button id="start-calibration" disabled>Start Calibration</button>
     <button id="start-tracking" disabled>Start Tracking</button>
@@ -62,11 +68,18 @@
         const customGazePoint = document.getElementById('custom-gaze-point');
         const calibrationPoint = document.getElementById('calibration-point');
 
-        let calibrationPoints = [
-            {x: 50, y: 50}, {x: 50, y: window.innerHeight - 50},
-            {x: window.innerWidth - 50, y: 50}, {x: window.innerWidth - 50, y: window.innerHeight - 50},
-            {x: window.innerWidth / 2, y: window.innerHeight / 2}
-        ];
+        function calculateCalibrationPoints() {
+            const margin = 150; // Increased margin to avoid overlap with video
+            return [
+                {x: margin, y: margin},
+                {x: margin, y: window.innerHeight - margin},
+                {x: window.innerWidth - margin, y: margin},
+                {x: window.innerWidth - margin, y: window.innerHeight - margin},
+                {x: window.innerWidth / 2, y: window.innerHeight / 2}
+            ];
+        }
+
+        let calibrationPoints = calculateCalibrationPoints();
         let currentCalibrationPoint = 0;
 
         function log(message) {
@@ -90,8 +103,17 @@
                 .then(() => {
                     log('WebGazer initialized successfully');
                     webgazer.showVideoPreview(true)
-                           .showPredictionPoints(true)  // This shows WebGazer's built-in red dot
+                           .showPredictionPoints(true)
                            .applyKalmanFilter(true);
+                    
+                    // Adjust video position
+                    const videoContainer = document.getElementById('webgazerVideoContainer');
+                    if (videoContainer) {
+                        videoContainer.style.position = 'fixed';
+                        videoContainer.style.top = '100px';
+                        videoContainer.style.left = '100px';
+                    }
+                    
                     startCalibrationButton.disabled = false;
                     logWebGazerState();
                 })
@@ -178,6 +200,11 @@
             log(`Error: ${message} at ${source}:${lineno}:${colno}`);
             return false;
         };
+
+        // Recalculate calibration points on window resize
+        window.addEventListener('resize', () => {
+            calibrationPoints = calculateCalibrationPoints();
+        });
     </script>
 </body>
 </html>
