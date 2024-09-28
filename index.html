@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>vebGazer with Adjusted Video Position</title>
+    <title>WebGazer with Adjusted Video and Calibration</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -45,18 +45,28 @@
         }
         #webgazerVideoContainer {
             position: fixed !important;
-            top: 100px !important;
-            left: 100px !important;
+            top: 20px !important;
+            left: 20px !important;
+        }
+        #video-area-indicator {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 320px;
+            height: 240px;
+            border: 2px solid red;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
-    <h1>WebGazer with Adjusted Video Position</h1>
+    <h1>WebGazer with Adjusted Video and Calibration</h1>
     <button id="init-webgazer">Initialize WebGazer</button>
     <button id="start-calibration" disabled>Start Calibration</button>
     <button id="start-tracking" disabled>Start Tracking</button>
     <div id="custom-gaze-point"></div>
     <div id="calibration-point"></div>
+    <div id="video-area-indicator"></div>
     <div id="debug"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
@@ -68,12 +78,17 @@
         const customGazePoint = document.getElementById('custom-gaze-point');
         const calibrationPoint = document.getElementById('calibration-point');
 
+        const videoTop = 20;
+        const videoLeft = 20;
+        const videoWidth = 320;
+        const videoHeight = 240;
+
         function calculateCalibrationPoints() {
-            const margin = 150; // Increased margin to avoid overlap with video
+            const margin = 50;
             return [
-                {x: margin, y: margin},
-                {x: margin, y: window.innerHeight - margin},
+                {x: videoLeft + videoWidth + margin, y: margin},
                 {x: window.innerWidth - margin, y: margin},
+                {x: margin, y: window.innerHeight - margin},
                 {x: window.innerWidth - margin, y: window.innerHeight - margin},
                 {x: window.innerWidth / 2, y: window.innerHeight / 2}
             ];
@@ -110,8 +125,8 @@
                     const videoContainer = document.getElementById('webgazerVideoContainer');
                     if (videoContainer) {
                         videoContainer.style.position = 'fixed';
-                        videoContainer.style.top = '100px';
-                        videoContainer.style.left = '100px';
+                        videoContainer.style.top = `${videoTop}px`;
+                        videoContainer.style.left = `${videoLeft}px`;
                     }
                     
                     startCalibrationButton.disabled = false;
