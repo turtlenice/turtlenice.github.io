@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>cWebGazer with Proper Initialization and Calibration</title>
+    <title>WebGazer with Custom Gaze Visualization</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -12,10 +12,10 @@
             align-items: center;
             padding: 20px;
         }
-        #gaze-point {
+        #custom-gaze-point {
             position: fixed;
-            width: 10px;
-            height: 10px;
+            width: 20px;
+            height: 20px;
             background-color: blue;
             border-radius: 50%;
             pointer-events: none;
@@ -23,9 +23,9 @@
         }
         #calibration-point {
             position: fixed;
-            width: 20px;
-            height: 20px;
-            background-color: red;
+            width: 30px;
+            height: 30px;
+            background-color: green;
             border-radius: 50%;
             display: none;
         }
@@ -45,11 +45,11 @@
     </style>
 </head>
 <body>
-    <h1>WebGazer with Proper Initialization and Calibration</h1>
+    <h1>WebGazer with Custom Gaze Visualization</h1>
     <button id="init-webgazer">Initialize WebGazer</button>
     <button id="start-calibration" disabled>Start Calibration</button>
     <button id="start-tracking" disabled>Start Tracking</button>
-    <div id="gaze-point"></div>
+    <div id="custom-gaze-point"></div>
     <div id="calibration-point"></div>
     <div id="debug"></div>
 
@@ -59,7 +59,7 @@
         const initWebGazerButton = document.getElementById('init-webgazer');
         const startCalibrationButton = document.getElementById('start-calibration');
         const startTrackingButton = document.getElementById('start-tracking');
-        const gazePoint = document.getElementById('gaze-point');
+        const customGazePoint = document.getElementById('custom-gaze-point');
         const calibrationPoint = document.getElementById('calibration-point');
 
         let calibrationPoints = [
@@ -75,10 +75,10 @@
             debugElement.scrollTop = debugElement.scrollHeight;
         }
 
-        function updateGazePoint(x, y) {
-            gazePoint.style.left = `${x}px`;
-            gazePoint.style.top = `${y}px`;
-            log(`Gaze detected at (${x.toFixed(2)}, ${y.toFixed(2)})`);
+        function updateCustomGazePoint(x, y) {
+            customGazePoint.style.left = `${x}px`;
+            customGazePoint.style.top = `${y}px`;
+            log(`Custom gaze point updated to (${x.toFixed(2)}, ${y.toFixed(2)})`);
         }
 
         function initializeWebGazer() {
@@ -89,7 +89,9 @@
                 .begin()
                 .then(() => {
                     log('WebGazer initialized successfully');
-                    webgazer.showVideoPreview(true).showPredictionPoints(true);
+                    webgazer.showVideoPreview(true)
+                           .showPredictionPoints(true)  // This shows WebGazer's built-in red dot
+                           .applyKalmanFilter(true);
                     startCalibrationButton.disabled = false;
                     logWebGazerState();
                 })
@@ -117,13 +119,13 @@
             calibrationPoint.style.left = `${point.x}px`;
             calibrationPoint.style.top = `${point.y}px`;
 
-            log(`Look at the red dot (${point.x}, ${point.y})`);
+            log(`Look at the green dot (${point.x}, ${point.y}) and click it`);
 
-            setTimeout(() => {
+            calibrationPoint.onclick = () => {
                 webgazer.recordScreenPosition(point.x, point.y, 'click');
                 currentCalibrationPoint++;
                 showNextCalibrationPoint();
-            }, 2000);
+            };
         }
 
         function finishCalibration() {
@@ -143,13 +145,12 @@
                 if (data == null) {
                     log('Gaze data is null');
                 } else {
+                    log(`Raw gaze data: x=${data.x}, y=${data.y}`);
                     smoothX = smoothX * smoothingFactor + data.x * (1 - smoothingFactor);
                     smoothY = smoothY * smoothingFactor + data.y * (1 - smoothingFactor);
-                    updateGazePoint(smoothX, smoothY);
+                    updateCustomGazePoint(smoothX, smoothY);
                 }
             });
-
-            webgazer.applyKalmanFilter(true);
         }
 
         function logWebGazerState() {
