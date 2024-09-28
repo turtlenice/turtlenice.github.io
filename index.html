@@ -73,7 +73,8 @@
             const message = document.getElementById("message");
 
             // Initialize WebGazer
-            function startEyeTracking() {
+function startEyeTracking() {
+    console.log("tutt");
     // Check if WebGazer is supported in the browser
     if (!webgazer) {
         console.error("WebGazer library failed to load.");
@@ -117,19 +118,24 @@
     // Optional: Hide the WebGazer video preview and prediction points
     webgazer.showVideo(false).showPredictionPoints(false);
 
-    // WebGazer requires the camera, make sure permissions are granted
-    // You can also handle permission issues by adding an event or a fallback mechanism
-    navigator.permissions.query({ name: "camera" }).then(permissionStatus => {
-        if (permissionStatus.state === "granted") {
-            console.log("Camera access granted.");
-        } else {
-            console.error("Camera access denied. WebGazer will not function.");
-            alert("Please grant camera access for gaze tracking to work.");
-        }
-    });
+    // Check if media devices (camera) permissions are available
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then((stream) => {
+                console.log("Camera access granted.");
+            })
+            .catch((error) => {
+                console.error("Camera access denied:", error);
+                alert("Please grant camera access for gaze tracking to work.");
+            });
+    } else {
+        console.error("Media devices not supported by the browser.");
+        alert("Your browser does not support camera access required for gaze tracking.");
+    }
 
     // You might want to add some calibration steps here to improve gaze accuracy
 }
+
 
 
             // Update the progress bar based on time and eye tracking
