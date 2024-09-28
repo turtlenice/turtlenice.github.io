@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>xFace Detection Meditation Timer</title>
+    <title>cFace Detection Meditation Timer</title>
     <style>
         body, html {
             height: 100%;
@@ -71,7 +71,8 @@
         const messageElement = document.getElementById("message");
         const debugElement = document.getElementById("debug");
         const meditationDuration = 60; // 1 minute in seconds
-        const checkInterval = 2000; // Check every 2 seconds
+        const checkInterval = 1000; // Check every 1 second
+        let lastGazeTime = 0;
 
         function log(message) {
             console.log(message);
@@ -104,10 +105,10 @@
         }
 
         function checkFaceDetection() {
-            const faceDetected = webgazer.getFaceFeedbackBox();
-            if (faceDetected) {
+            const currentTime = Date.now();
+            if (currentTime - lastGazeTime < 2000) { // Face detected within the last 2 seconds
                 log("Face detected");
-                progress += 2; // Increment by 2 seconds (checkInterval / 1000)
+                progress += 1; // Increment by 1 second
                 updateProgress();
             } else {
                 log("No face detected");
@@ -120,7 +121,11 @@
             meditationInterval = setInterval(checkFaceDetection, checkInterval);
         }
 
-        webgazer.setGazeListener(() => {}).begin()
+        webgazer.setGazeListener((data, elapsedTime) => {
+            if (data !== null) {
+                lastGazeTime = Date.now();
+            }
+        }).begin()
             .then(() => {
                 log("WebGazer initialized successfully");
                 webgazer.showVideo(true)
