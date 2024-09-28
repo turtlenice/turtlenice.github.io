@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Med</title>
+    <title>MedX</title>
     <style>
         body, html {
             height: 100%;
@@ -54,6 +54,23 @@
             top: 20px !important;
             left: 20px !important;
         }
+        
+        body, html {
+            height: 100%;
+            /* ... rest of your styles ... */
+        }
+        #trackingVideo {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            transform: scaleX(-1); /* Mirror the video for a natural feel */
+        }
+        #canvasOverlay {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            pointer-events: none; /* Allow clicks to pass through */
+        }
     </style>
 </head>
 <body>
@@ -62,7 +79,14 @@
     </div>
     <div id="message">Focus on the camera for 1 minute</div>
     <div id="debug"></div>
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <!-- Video and Canvas Elements -->
+    <video id="trackingVideo" width="320" height="240" autoplay muted></video>
+    <canvas id="canvasOverlay"></canvas>
+
+    <!-- Include tracking.js -->
+    <script src="https://cdn.jsdelivr.net/npm/tracking@1.1.3/build/tracking-min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tracking@1.1.3/build/data/face-min.js"></script>
+    <!-- Include webgazer.js -->
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
     <script>
         let progress = 0;
@@ -73,7 +97,9 @@
         const meditationDuration = 60; // 1 minute in seconds
         const checkInterval = 1000; // Check every 1 second
 
-        let video; // Video element from WebGazer
+        const video = document.getElementById('trackingVideo');
+        const canvas = document.getElementById('canvasOverlay');
+        const context = canvas.getContext('2d');
 
         function log(message) {
             console.log(message);
@@ -103,77 +129,89 @@
             messageElement.textContent = "Great job! 1-minute meditation completed.";
             log("Meditation session completed!");
             webgazer.end();
-        }
-
-        async function checkFaceDetection() {
-            if (!video || video.readyState !== 4) {
-                log("Video not ready");
-                resetProgress();
-                return;
-            }
-
-            const displaySize = { width: video.videoWidth, height: video.videoHeight };
-
-            // Detect faces
-            const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
-
-            if (detections && detections.length > 0) {
-                // Get the first detected face
-                const face = detections[0].box;
-
-                // Determine middle 60% area
-                const leftBoundary = displaySize.width * 0.2;
-                const rightBoundary = displaySize.width * 0.8;
-                const topBoundary = displaySize.height * 0.2;
-                const bottomBoundary = displaySize.height * 0.8;
-
-                // Get center of the face
-                const faceCenterX = face.x + face.width / 2;
-                const faceCenterY = face.y + face.height / 2;
-
-                if (faceCenterX > leftBoundary && faceCenterX < rightBoundary &&
-                    faceCenterY > topBoundary && faceCenterY < bottomBoundary) {
-                    // Face is in the middle area
-                    log("Face detected in the middle area");
-                    progress += 1; // Increment by 1 second
-                    updateProgress();
-                } else {
-                    // Face is detected but not in middle area
-                    log("Face detected but not in the middle area");
-                    resetProgress();
-                }
-            } else {
-                log("No face detected");
-                resetProgress();
+            // Stop the video stream
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
             }
         }
 
-        async function startTracking() {
+        function startTracking() {
             log("Starting face detection...");
-            // Load face-api.js models
-            await faceapi.nets.tinyFaceDetector.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models');
 
-            meditationInterval = setInterval(checkFaceDetection, checkInterval);
+            // Get user's webcam
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                    video.onloadedmetadata = function(e) {
+                        video.play();
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        startFaceTracking();
+                    };
+                })
+                .catch(function(err) {
+                    log("Error accessing webcam: " + err);
+                });
         }
 
+        function startFaceTracking() {
+            const tracker = new tracking.ObjectTracker('face');
+            tracker.setInitialScale(4);
+            tracker.setStepSize(2);
+            tracker.setEdgesDensity(0.1);
+
+            tracking.track('#trackingVideo', tracker, { camera: false });
+
+            tracker.on('track', function(event) {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+
+                if (event.data.length === 0) {
+                    log("No face detected");
+                    resetProgress();
+                } else {
+                    const rect = event.data[0];
+                    // Draw rectangle around face (optional)
+                    context.strokeStyle = '#a64ceb';
+                    context.lineWidth = 2;
+                    context.strokeRect(rect.x, rect.y, rect.width, rect.height);
+
+                    // Determine middle 60% area
+                    const leftBoundary = canvas.width * 0.2;
+                    const rightBoundary = canvas.width * 0.8;
+                    const topBoundary = canvas.height * 0.2;
+                    const bottomBoundary = canvas.height * 0.8;
+
+                    // Draw middle area rectangle (optional)
+                    context.strokeStyle = 'blue';
+                    context.lineWidth = 2;
+                    context.strokeRect(leftBoundary, topBoundary, rightBoundary - leftBoundary, bottomBoundary - topBoundary);
+
+                    // Get center of the face
+                    const faceCenterX = rect.x + rect.width / 2;
+                    const faceCenterY = rect.y + rect.height / 2;
+
+                    if (faceCenterX > leftBoundary && faceCenterX < rightBoundary &&
+                        faceCenterY > topBoundary && faceCenterY < bottomBoundary) {
+                        // Face is in the middle area
+                        log("Face detected in the middle area");
+                        progress += 1; // Increment by 1 second
+                        updateProgress();
+                    } else {
+                        // Face is detected but not in middle area
+                        log("Face detected but not in the middle area");
+                        resetProgress();
+                    }
+                }
+            });
+        }
+
+        // Start WebGazer (for gaze tracking if needed)
         webgazer.begin()
             .then(() => {
                 log("WebGazer initialized successfully");
-                webgazer.showVideo(true)
-                       .showFaceOverlay(true)
-                       .showFaceFeedbackBox(true);
-
-                // Get the video element
-                video = document.getElementById('webgazerVideoFeed');
-
-                // Adjust video position
-                const videoContainer = document.getElementById('webgazerVideoContainer');
-                if (videoContainer) {
-                    videoContainer.style.position = 'fixed';
-                    videoContainer.style.top = '20px';
-                    videoContainer.style.left = '20px';
-                }
-
+                webgazer.showVideo(false)
+                       .showFaceOverlay(false)
+                       .showFaceFeedbackBox(false);
                 startTracking();
             })
             .catch(error => {
