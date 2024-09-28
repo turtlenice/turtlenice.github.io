@@ -74,6 +74,7 @@
 
             // Initialize WebGazer
             function startEyeTracking() {
+                console.log("started");
     webgazer.setGazeListener((data, elapsedTime) => {
         if (data == null) {
             console.log("No gaze data detected.");
