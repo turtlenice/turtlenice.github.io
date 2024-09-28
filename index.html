@@ -5,7 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meditation Loading</title>
     <style>
-        /* ... (keep the existing styles) ... */
+        body, html {
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f0f0f0;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            position: relative;
+        }
+
+        #loading-bar-container {
+            width: 300px;
+            height: 10px;
+            background-color: #ddd;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #loading-bar {
+            width: 0%;
+            height: 100%;
+            background-color: #1F51FF;
+            transition: width 0.1s;
+        }
+
+        #message {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 36px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        #status {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 14px;
+            color: #666;
+        }
+
+        body {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
     </style>
 </head>
 <body>
@@ -14,6 +70,7 @@
     </div>
 
     <div id="message">Hope you enjoyed your meditation session!</div>
+    <div id="status">Initializing eye tracking...</div>
 
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
     <script>
@@ -24,70 +81,70 @@
             let lastGazeTime = null;
             const loadingBar = document.getElementById("loading-bar");
             const message = document.getElementById("message");
+            const statusElement = document.getElementById("status");
             const gazeTimeout = 1000; // 1 second timeout for gaze detection
 
+            function updateStatus(text) {
+                statusElement.textContent = text;
+            }
+
             function startEyeTracking() {
-    
-                console.log("Starting eye tracking...");
+                updateStatus("Starting eye tracking...");
                 if (!webgazer) {
-                    console.error("WebGazer library failed to load.");
+                    updateStatus("WebGazer library failed to load.");
                     return;
                 }
 
                 webgazer.setGazeListener((data, elapsedTime) => {
                     if (data) {
                         const { x, y } = data;
-                        console.log(`Gaze detected at coordinates: (${x}, ${y})`);
+                        updateStatus(`Gaze detected at (${x.toFixed(2)}, ${y.toFixed(2)})`);
                         lastGazeTime = Date.now();
                         
                         if (x >= 0 && x <= window.innerWidth && y >= 0 && y <= window.innerHeight) {
                             gazeDetected = true;
-                            console.log("Gaze detected within viewport.");
                         } else {
-                            console.log("Gaze detected outside viewport.");
                             gazeDetected = false;
                         }
                     } else {
-                        console.log("No gaze data available in this frame.");
+                        updateStatus("No gaze data available in this frame.");
                     }
                 }).begin()
                 .then(() => {
-                    console.log("WebGazer successfully initialized.");
+                    updateStatus("WebGazer initialized. Please look at the screen.");
                 })
                 .catch((err) => {
-                    console.error("Error initializing WebGazer:", err);
+                    updateStatus(`Error initializing WebGazer: ${err.message}`);
                 });
 
-                webgazer.showVideo(false).showPredictionPoints(false);
+                webgazer.showVideo(true).showPredictionPoints(true);
 
                 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                     navigator.mediaDevices.getUserMedia({ video: true })
                         .then((stream) => {
-                            console.log("Camera access granted.");
+                            updateStatus("Camera access granted. Calibrating...");
                         })
                         .catch((error) => {
-                            console.error("Camera access denied:", error);
-                            alert("Please grant camera access for gaze tracking to work.");
+                            updateStatus(`Camera access denied: ${error.message}`);
                         });
                 } else {
-                    console.error("Media devices not supported by the browser.");
-                    alert("Your browser does not support camera access required for gaze tracking.");
+                    updateStatus("Media devices not supported by this browser.");
                 }
             }
 
             function updateProgress() {
                 const currentTime = Date.now();
                 if (lastGazeTime && (currentTime - lastGazeTime) > gazeTimeout) {
-                    console.log("Gaze lost for more than 1 second. Resetting progress.");
+                    updateStatus("Gaze lost. Please look at the screen.");
                     resetProgress();
                 } else if (gazeDetected && progress < 100) {
                     if (!startTime) {
                         startTime = currentTime;
                     }
                     const elapsedTime = (currentTime - startTime) / 1000; // in seconds
-                    progress = (elapsedTime / 3600) * 100; // 1 hour = 3600 seconds
+                    progress = (elapsedTime / 60) * 100; // 1 minute = 60 seconds (changed for testing)
 
-                    loadingBar.style.width = progress + "%";
+                    loadingBar.style.width = `${progress}%`;
 
                     if (progress >= 100) {
                         finishSession();
@@ -108,6 +165,7 @@
             function finishSession() {
                 document.getElementById("loading-bar-container").style.display = "none";
                 message.style.display = "block";
+                updateStatus("Meditation session completed!");
             }
 
             window.addEventListener('blur', resetProgress);
