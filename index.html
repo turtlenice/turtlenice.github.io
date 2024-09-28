@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meditation</title>
+    <title>xm</title>
     <style>
         body, html {
             height: 100%;
@@ -72,9 +72,12 @@
         const debugElement = document.getElementById("debug");
         const meditationDuration = 60; // 1 minute in seconds
         const checkInterval = 1000; // Check every 1 second
-        let lastCenteredTime = 0;
         let videoWidth = 320; // Default video width
         let videoHeight = 240; // Default video height
+
+        const centeringHistory = [];
+        const historyDuration = 3000; // 3 seconds of history
+        const centeringThreshold = 0.9; // 90% threshold for considering uncentered
 
         function log(message) {
             console.log(message);
@@ -119,31 +122,44 @@
             return x >= minX && x <= maxX && y >= minY && y <= maxY;
         }
 
+        function updateCenteringHistory(isCentered) {
+            const now = Date.now();
+            centeringHistory.push({ time: now, centered: isCentered });
+
+            // Remove old entries
+            while (centeringHistory.length > 0 && now - centeringHistory[0].time > historyDuration) {
+                centeringHistory.shift();
+            }
+        }
+
+        function isConsistentlyUncentered() {
+            if (centeringHistory.length === 0) return false;
+
+            const uncenterCount = centeringHistory.filter(entry => !entry.centered).length;
+            return (uncenterCount / centeringHistory.length) > centeringThreshold;
+        }
+
         function checkFaceDetection() {
-            const currentTime = Date.now();
-            if (currentTime - lastCenteredTime < 2000) { // Face centered within the last 2 seconds
-                log("Face centered");
+            if (isConsistentlyUncentered()) {
+                log("Face consistently not centered");
+                resetProgress();
+            } else {
+                log("Face considered centered");
                 progress += 1; // Increment by 1 second
                 updateProgress();
-            } else {
-                log("Face not centered");
-                resetProgress();
             }
         }
 
         function startTracking() {
-            log("Starting centered face detection...");
+            log("Starting smoothed centered face detection...");
             meditationInterval = setInterval(checkFaceDetection, checkInterval);
         }
 
         webgazer.setGazeListener((data, elapsedTime) => {
             if (data !== null && data.x !== null && data.y !== null) {
-                if (isFaceCentered(data.x, data.y)) {
-                    lastCenteredTime = Date.now();
-                    log(`Face centered at (${data.x.toFixed(2)}, ${data.y.toFixed(2)})`);
-                } else {
-                    log(`Face not centered at (${data.x.toFixed(2)}, ${data.y.toFixed(2)})`);
-                }
+                const centered = isFaceCentered(data.x, data.y);
+                updateCenteringHistory(centered);
+                log(`Face ${centered ? 'centered' : 'not centered'} at (${data.x.toFixed(2)}, ${data.y.toFixed(2)})`);
             }
         }).begin()
             .then(() => {
