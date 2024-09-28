@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>cFace Detection Meditation Timer</title>
+    <title>Meditation</title>
     <style>
         body, html {
             height: 100%;
@@ -60,7 +60,7 @@
     <div id="loading-bar-container">
         <div id="loading-bar"></div>
     </div>
-    <div id="message">Focus on the camera for 1 minute</div>
+    <div id="message">Center your face in the camera for 1 minute</div>
     <div id="debug"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
@@ -72,7 +72,9 @@
         const debugElement = document.getElementById("debug");
         const meditationDuration = 60; // 1 minute in seconds
         const checkInterval = 1000; // Check every 1 second
-        let lastGazeTime = 0;
+        let lastCenteredTime = 0;
+        let videoWidth = 320; // Default video width
+        let videoHeight = 240; // Default video height
 
         function log(message) {
             console.log(message);
@@ -82,7 +84,7 @@
 
         function updateProgress() {
             loadingBar.style.width = `${(progress / meditationDuration) * 100}%`;
-            messageElement.textContent = `Focus maintained for ${progress} seconds`;
+            messageElement.textContent = `Centered focus maintained for ${progress} seconds`;
 
             if (progress >= meditationDuration) {
                 finishSession();
@@ -92,8 +94,8 @@
         function resetProgress() {
             progress = 0;
             loadingBar.style.width = "0%";
-            messageElement.textContent = "Focus on the camera for 1 minute";
-            log("Progress reset");
+            messageElement.textContent = "Center your face in the camera for 1 minute";
+            log("Progress reset - Face not centered");
         }
 
         function finishSession() {
@@ -104,26 +106,44 @@
             webgazer.end();
         }
 
+        function isFaceCentered(x, y) {
+            const centerX = videoWidth / 2;
+            const centerY = videoHeight / 2;
+            const allowedDeviation = 0.25; // 25% deviation allowed
+
+            const minX = centerX - (videoWidth * allowedDeviation);
+            const maxX = centerX + (videoWidth * allowedDeviation);
+            const minY = centerY - (videoHeight * allowedDeviation);
+            const maxY = centerY + (videoHeight * allowedDeviation);
+
+            return x >= minX && x <= maxX && y >= minY && y <= maxY;
+        }
+
         function checkFaceDetection() {
             const currentTime = Date.now();
-            if (currentTime - lastGazeTime < 2000) { // Face detected within the last 2 seconds
-                log("Face detected");
+            if (currentTime - lastCenteredTime < 2000) { // Face centered within the last 2 seconds
+                log("Face centered");
                 progress += 1; // Increment by 1 second
                 updateProgress();
             } else {
-                log("No face detected");
+                log("Face not centered");
                 resetProgress();
             }
         }
 
         function startTracking() {
-            log("Starting face detection...");
+            log("Starting centered face detection...");
             meditationInterval = setInterval(checkFaceDetection, checkInterval);
         }
 
         webgazer.setGazeListener((data, elapsedTime) => {
-            if (data !== null) {
-                lastGazeTime = Date.now();
+            if (data !== null && data.x !== null && data.y !== null) {
+                if (isFaceCentered(data.x, data.y)) {
+                    lastCenteredTime = Date.now();
+                    log(`Face centered at (${data.x.toFixed(2)}, ${data.y.toFixed(2)})`);
+                } else {
+                    log(`Face not centered at (${data.x.toFixed(2)}, ${data.y.toFixed(2)})`);
+                }
             }
         }).begin()
             .then(() => {
@@ -132,6 +152,14 @@
                        .showFaceOverlay(true)
                        .showFaceFeedbackBox(true);
                 
+                // Get actual video dimensions
+                const videoElement = document.querySelector('#webgazerVideoContainer video');
+                if (videoElement) {
+                    videoWidth = videoElement.videoWidth;
+                    videoHeight = videoElement.videoHeight;
+                    log(`Video dimensions: ${videoWidth}x${videoHeight}`);
+                }
+
                 // Adjust video position
                 const videoContainer = document.getElementById('webgazerVideoContainer');
                 if (videoContainer) {
