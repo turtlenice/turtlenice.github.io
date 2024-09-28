@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MedX</title>
+    <title>Med</title>
     <style>
         body, html {
             height: 100%;
@@ -99,17 +99,17 @@
 
         function checkFaceDetection() {
             const tracker = webgazer.getTracker();
-            if (tracker && tracker.getCurrentPosition()) {
-                const currentPosition = tracker.getCurrentPosition();
-                if (currentPosition) {
-                    log(`Face detected at (${currentPosition.x.toFixed(2)}, ${currentPosition.y.toFixed(2)})`);
+            if (tracker && tracker.getEyePatches) {
+                const eyePatches = tracker.getEyePatches();
+                if (eyePatches && (eyePatches.left || eyePatches.right)) {
+                    log("Face detected (eyes found)");
                     progress += 1;
                     updateProgress();
                     return;
                 }
             }
             
-            log("Face not detected");
+            log("Face not detected (eyes not found)");
             resetProgress();
         }
 
