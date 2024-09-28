@@ -3,179 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Improved Gaze Detection: 10-Second Meditation</title>
+    <title>Minimal Gaze Detection Test</title>
     <style>
-        body, html {
-            height: 100%;
+        body {
+            font-family: Arial, sans-serif;
             display: flex;
             flex-direction: column;
-            justify-content: center;
             align-items: center;
-            background-color: #f0f0f0;
-            margin: 0;
-            font-family: Arial, sans-serif;
+            padding: 20px;
         }
-
-        #loading-bar-container {
-            width: 300px;
-            height: 20px;
-            background-color: #ddd;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 20px;
-        }
-
-        #loading-bar {
-            width: 0%;
-            height: 100%;
-            background-color: #4CAF50;
-            transition: width 0.1s;
-        }
-
-        #message, #status {
-            margin: 10px 0;
-            text-align: center;
-            font-size: 18px;
-            color: #333;
-        }
-
         #debug {
-            margin-top: 20px;
+            width: 80%;
+            height: 200px;
+            border: 1px solid #ccc;
+            overflow-y: scroll;
             padding: 10px;
-            background-color: #f8f8f8;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            max-width: 80%;
-            overflow-y: auto;
-            max-height: 200px;
+            margin-top: 20px;
         }
-
         button {
             margin-top: 10px;
             padding: 10px 20px;
             font-size: 16px;
-            cursor: pointer;
         }
     </style>
 </head>
 <body>
-    <div id="loading-bar-container">
-        <div id="loading-bar"></div>
-    </div>
-
-    <div id="message">Focus on the screen for 10 seconds</div>
-    <div id="status">Initializing eye tracking...</div>
-    <button id="manual-trigger">Check Gaze</button>
+    <h1>Minimal Gaze Detection Test</h1>
+    <button id="check-gaze">Check Gaze</button>
     <div id="debug"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            let progress = 0;
-            let startTime = null;
-            let meditationInterval = null;
-            let isSessionActive = false;
-            const loadingBar = document.getElementById("loading-bar");
-            const messageElement = document.getElementById("message");
-            const statusElement = document.getElementById("status");
-            const debugElement = document.getElementById("debug");
-            const manualTrigger = document.getElementById("manual-trigger");
-            const meditationDuration = 10; // 10 seconds
-            const checkInterval = 100; // Check every 100ms for smoother updates
+        const debugElement = document.getElementById('debug');
+        const checkGazeButton = document.getElementById('check-gaze');
 
-            function log(message) {
-                console.log(message);
-                debugElement.innerHTML += message + "<br>";
-                debugElement.scrollTop = debugElement.scrollHeight;
+        function log(message) {
+            console.log(message);
+            debugElement.innerHTML += message + '<br>';
+            debugElement.scrollTop = debugElement.scrollHeight;
+        }
+
+        function checkGaze() {
+            const prediction = webgazer.getCurrentPrediction();
+            if (prediction) {
+                const { x, y } = prediction;
+                log(`Gaze detected at (${x.toFixed(2)}, ${y.toFixed(2)})`);
+            } else {
+                log('No gaze detected');
             }
+        }
 
-            function updateStatus(text) {
-                statusElement.textContent = text;
-                log("Status: " + text);
-            }
-
-            function startEyeTracking() {
-                updateStatus("Starting eye tracking...");
-                if (!webgazer) {
-                    updateStatus("WebGazer library failed to load.");
-                    return;
-                }
-
-                webgazer.setGazeListener(() => {}).begin()
+        function initializeWebGazer() {
+            log('Initializing WebGazer...');
+            webgazer.setGazeListener(() => {})
+                .begin()
                 .then(() => {
-                    updateStatus("WebGazer initialized. Please look at the screen and click 'Check Gaze' to start.");
+                    log('WebGazer initialized successfully');
+                    checkGazeButton.disabled = false;
                 })
-                .catch((err) => {
-                    updateStatus(`Error initializing WebGazer: ${err.message}`);
+                .catch(error => {
+                    log(`Error initializing WebGazer: ${error}`);
                 });
 
-                webgazer.showVideo(true).showPredictionPoints(true);
-            }
+            webgazer.showVideo(true).showPredictionPoints(true);
+        }
 
-            function isGazeDetected() {
-                const prediction = webgazer.getCurrentPrediction();
-                if (prediction) {
-                    const { x, y } = prediction;
-                    updateStatus(`Gaze detected at (${x.toFixed(2)}, ${y.toFixed(2)})`);
-                    return true;
-                }
-                updateStatus("No gaze detected. Please look at the screen.");
-                return false;
-            }
+        checkGazeButton.addEventListener('click', checkGaze);
+        checkGazeButton.disabled = true;
 
-            function checkGazeAndUpdateProgress() {
-                if (isGazeDetected()) {
-                    if (!isSessionActive) {
-                        isSessionActive = true;
-                        startTime = Date.now();
-                        log("Meditation started");
-                    }
-                    progress = (Date.now() - startTime) / 1000;
-                    updateProgress();
-                } else {
-                    resetProgress();
-                }
-            }
-
-            function updateProgress() {
-                const percentage = (progress / meditationDuration) * 100;
-                loadingBar.style.width = `${percentage}%`;
-                messageElement.textContent = `Focus maintained for ${progress.toFixed(1)} seconds`;
-                log(`Progress updated: ${percentage.toFixed(2)}%`);
-
-                if (progress >= meditationDuration) {
-                    finishSession();
-                }
-            }
-
-            function resetProgress() {
-                if (isSessionActive) {
-                    log("Gaze lost, resetting progress");
-                    isSessionActive = false;
-                    progress = 0;
-                    startTime = null;
-                    loadingBar.style.width = "0%";
-                    messageElement.textContent = "Focus on the screen for 10 seconds";
-                }
-            }
-
-            function finishSession() {
-                isSessionActive = false;
-                clearInterval(meditationInterval);
-                loadingBar.style.width = "100%";
-                messageElement.textContent = "Great job! 10-second meditation completed.";
-                updateStatus("Meditation session completed!");
-                webgazer.end();
-                log("Session finished");
-            }
-
-            manualTrigger.addEventListener('click', () => {
-                log("Manual gaze check triggered");
-                checkGazeAndUpdateProgress();
-            });
-
-            startEyeTracking();
-        });
+        document.addEventListener('DOMContentLoaded', initializeWebGazer);
     </script>
 </body>
 </html>
