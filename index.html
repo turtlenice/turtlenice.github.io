@@ -62,7 +62,7 @@
     </div>
     <div id="message">Focus on the camera for 1 minute</div>
     <div id="debug"></div>
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
     <script>
         let progress = 0;
@@ -151,7 +151,7 @@
         async function startTracking() {
             log("Starting face detection...");
             // Load face-api.js models
-            await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/face-api.js/models');
+            await faceapi.nets.tinyFaceDetector.loadFromUri('https://justadudewhohacks.github.io/face-api.js/models');
 
             meditationInterval = setInterval(checkFaceDetection, checkInterval);
         }
