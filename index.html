@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MedX</title>
+    <title>Meditation</title>
     <style>
         body, html {
             height: 100%;
@@ -48,19 +48,13 @@
             margin-top: 20px;
             font-size: 14px;
         }
-
-        #webgazerVideoContainer {
-            position: fixed !important;
-            top: 20px !important;
-            left: 20px !important;
-        }
     </style>
 </head>
 <body>
     <div id="loading-bar-container">
         <div id="loading-bar"></div>
     </div>
-    <div id="message">Keep your face within the green box for 1 minute</div>
+    <div id="message">Keep your face visible for 1 minute</div>
     <div id="debug"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
@@ -81,7 +75,7 @@
 
         function updateProgress() {
             loadingBar.style.width = `${(progress / meditationDuration) * 100}%`;
-            messageElement.textContent = `Face kept within green box for ${progress} seconds`;
+            messageElement.textContent = `Face detected for ${progress} seconds`;
 
             if (progress >= meditationDuration) {
                 finishSession();
@@ -91,8 +85,8 @@
         function resetProgress() {
             progress = 0;
             loadingBar.style.width = "0%";
-            messageElement.textContent = "Keep your face within the green box for 1 minute";
-            log("Progress reset - Face outside green box");
+            messageElement.textContent = "Keep your face visible for 1 minute";
+            log("Progress reset - Face not detected");
         }
 
         function finishSession() {
@@ -104,19 +98,13 @@
         }
 
         function checkFaceDetection() {
-            const faceFeedbackBox = document.querySelector('.faceFeedbackBox');
-            if (faceFeedbackBox) {
-                const boxColor = window.getComputedStyle(faceFeedbackBox).borderColor;
-                log(`Feedback box color: ${boxColor}`);
-                
-                if (boxColor === 'rgb(0, 128, 0)' || boxColor === 'green') { // Green box
-                    progress += 1;
-                    updateProgress();
-                } else {
-                    resetProgress();
-                }
+            const tracker = webgazer.getTracker();
+            if (tracker && tracker.getPositions()) {
+                log("Face detected");
+                progress += 1;
+                updateProgress();
             } else {
-                log("Feedback box not found");
+                log("Face not detected");
                 resetProgress();
             }
         }
@@ -133,16 +121,7 @@
                        .showFaceOverlay(true)
                        .showFaceFeedbackBox(true);
 
-                // Give WebGazer a moment to set up the video and overlay
-                setTimeout(() => {
-                    const videoContainer = document.getElementById('webgazerVideoContainer');
-                    if (videoContainer) {
-                        videoContainer.style.position = 'fixed';
-                        videoContainer.style.top = '20px';
-                        videoContainer.style.left = '20px';
-                    }
-                    startTracking();
-                }, 2000);
+                startTracking();
             })
             .catch(error => {
                 log(`Error initializing WebGazer: ${error}`);
