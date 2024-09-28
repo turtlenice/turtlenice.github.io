@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meditation Loading</title>
+    <title>10-Second Meditation Loading</title>
     <style>
         body, html {
             height: 100%;
@@ -18,31 +18,27 @@
 
         #loading-bar-container {
             width: 300px;
-            height: 10px;
+            height: 20px;
             background-color: #ddd;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            border-radius: 10px;
+            overflow: hidden;
         }
 
         #loading-bar {
             width: 0%;
             height: 100%;
-            background-color: #1F51FF;
+            background-color: #4CAF50;
             transition: width 0.1s;
         }
 
         #message {
-            display: none;
             position: absolute;
-            top: 50%;
+            top: 70%;
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
-            font-size: 36px;
+            font-size: 24px;
             color: #333;
-            font-weight: bold;
         }
 
         #status {
@@ -50,17 +46,8 @@
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 14px;
+            font-size: 16px;
             color: #666;
-        }
-
-        body {
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            -khtml-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
         }
     </style>
 </head>
@@ -69,7 +56,7 @@
         <div id="loading-bar"></div>
     </div>
 
-    <div id="message">Hope you enjoyed your meditation session!</div>
+    <div id="message">Focus on the screen for 10 seconds</div>
     <div id="status">Initializing eye tracking...</div>
 
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
@@ -80,9 +67,10 @@
             let startTime = null;
             let lastGazeTime = null;
             const loadingBar = document.getElementById("loading-bar");
-            const message = document.getElementById("message");
+            const messageElement = document.getElementById("message");
             const statusElement = document.getElementById("status");
-            const gazeTimeout = 1000; // 1 second timeout for gaze detection
+            const meditationDuration = 10000; // 10 seconds in milliseconds
+            const gazeTimeout = 500; // 500ms timeout for gaze detection
 
             function updateStatus(text) {
                 statusElement.textContent = text;
@@ -100,18 +88,14 @@
                         const { x, y } = data;
                         updateStatus(`Gaze detected at (${x.toFixed(2)}, ${y.toFixed(2)})`);
                         lastGazeTime = Date.now();
-                        
-                        if (x >= 0 && x <= window.innerWidth && y >= 0 && y <= window.innerHeight) {
-                            gazeDetected = true;
-                        } else {
-                            gazeDetected = false;
-                        }
+                        gazeDetected = true;
                     } else {
-                        updateStatus("No gaze data available in this frame.");
+                        updateStatus("No gaze data available. Please look at the screen.");
+                        gazeDetected = false;
                     }
                 }).begin()
                 .then(() => {
-                    updateStatus("WebGazer initialized. Please look at the screen.");
+                    updateStatus("WebGazer initialized. Please look at the screen to start meditation.");
                 })
                 .catch((err) => {
                     updateStatus(`Error initializing WebGazer: ${err.message}`);
@@ -122,7 +106,7 @@
                 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                     navigator.mediaDevices.getUserMedia({ video: true })
                         .then((stream) => {
-                            updateStatus("Camera access granted. Calibrating...");
+                            updateStatus("Camera access granted. Ready to start meditation.");
                         })
                         .catch((error) => {
                             updateStatus(`Camera access denied: ${error.message}`);
@@ -134,17 +118,23 @@
 
             function updateProgress() {
                 const currentTime = Date.now();
-                if (lastGazeTime && (currentTime - lastGazeTime) > gazeTimeout) {
-                    updateStatus("Gaze lost. Please look at the screen.");
-                    resetProgress();
-                } else if (gazeDetected && progress < 100) {
-                    if (!startTime) {
-                        startTime = currentTime;
-                    }
-                    const elapsedTime = (currentTime - startTime) / 1000; // in seconds
-                    progress = (elapsedTime / 60) * 100; // 1 minute = 60 seconds (changed for testing)
+                if (!startTime && gazeDetected) {
+                    startTime = currentTime;
+                    updateStatus("Meditation started. Keep focusing on the screen.");
+                }
 
-                    loadingBar.style.width = `${progress}%`;
+                if (startTime) {
+                    const elapsedTime = currentTime - startTime;
+                    if (currentTime - lastGazeTime > gazeTimeout) {
+                        updateStatus("Gaze lost. Please refocus on the screen.");
+                        startTime = null;
+                        progress = 0;
+                    } else {
+                        progress = (elapsedTime / meditationDuration) * 100;
+                    }
+
+                    loadingBar.style.width = `${Math.min(progress, 100)}%`;
+                    messageElement.textContent = `Focus maintained for ${(elapsedTime / 1000).toFixed(1)} seconds`;
 
                     if (progress >= 100) {
                         finishSession();
@@ -155,24 +145,12 @@
                 requestAnimationFrame(updateProgress);
             }
 
-            function resetProgress() {
-                progress = 0;
-                loadingBar.style.width = "0%";
-                startTime = null;
-                message.style.display = "none";
-            }
-
             function finishSession() {
-                document.getElementById("loading-bar-container").style.display = "none";
-                message.style.display = "block";
+                loadingBar.style.width = "100%";
+                messageElement.textContent = "Great job! 10-second meditation completed.";
                 updateStatus("Meditation session completed!");
+                webgazer.end();
             }
-
-            window.addEventListener('blur', resetProgress);
-            window.addEventListener('mousemove', resetProgress);
-            document.addEventListener('contextmenu', function (e) {
-                e.preventDefault();
-            });
 
             startEyeTracking();
             updateProgress();
