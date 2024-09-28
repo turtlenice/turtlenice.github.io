@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Debug: 0-Second Meditation Loading</title>
+    <title>Improved Gaze Detection: 10-Second Meditation</title>
     <style>
         body, html {
             height: 100%;
@@ -65,7 +65,7 @@
 
     <div id="message">Focus on the screen for 10 seconds</div>
     <div id="status">Initializing eye tracking...</div>
-    <button id="manual-trigger">Manually Trigger Gaze</button>
+    <button id="manual-trigger">Check Gaze</button>
     <div id="debug"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
@@ -74,6 +74,7 @@
             let progress = 0;
             let startTime = null;
             let meditationInterval = null;
+            let isSessionActive = false;
             const loadingBar = document.getElementById("loading-bar");
             const messageElement = document.getElementById("message");
             const statusElement = document.getElementById("status");
@@ -102,8 +103,7 @@
 
                 webgazer.setGazeListener(() => {}).begin()
                 .then(() => {
-                    updateStatus("WebGazer initialized. Please look at the screen to start meditation.");
-                    startMeditationCheck();
+                    updateStatus("WebGazer initialized. Please look at the screen and click 'Check Gaze' to start.");
                 })
                 .catch((err) => {
                     updateStatus(`Error initializing WebGazer: ${err.message}`);
@@ -123,20 +123,18 @@
                 return false;
             }
 
-            function startMeditationCheck() {
-                log("Starting meditation check");
-                meditationInterval = setInterval(() => {
-                    if (isGazeDetected()) {
-                        if (!startTime) {
-                            startTime = Date.now();
-                            log("Meditation started");
-                        }
-                        progress = (Date.now() - startTime) / 1000;
-                        updateProgress();
-                    } else {
-                        resetProgress();
+            function checkGazeAndUpdateProgress() {
+                if (isGazeDetected()) {
+                    if (!isSessionActive) {
+                        isSessionActive = true;
+                        startTime = Date.now();
+                        log("Meditation started");
                     }
-                }, checkInterval);
+                    progress = (Date.now() - startTime) / 1000;
+                    updateProgress();
+                } else {
+                    resetProgress();
+                }
             }
 
             function updateProgress() {
@@ -151,14 +149,18 @@
             }
 
             function resetProgress() {
-                progress = 0;
-                startTime = null;
-                loadingBar.style.width = "0%";
-                messageElement.textContent = "Focus on the screen for 10 seconds";
-                log("Progress reset");
+                if (isSessionActive) {
+                    log("Gaze lost, resetting progress");
+                    isSessionActive = false;
+                    progress = 0;
+                    startTime = null;
+                    loadingBar.style.width = "0%";
+                    messageElement.textContent = "Focus on the screen for 10 seconds";
+                }
             }
 
             function finishSession() {
+                isSessionActive = false;
                 clearInterval(meditationInterval);
                 loadingBar.style.width = "100%";
                 messageElement.textContent = "Great job! 10-second meditation completed.";
@@ -168,13 +170,8 @@
             }
 
             manualTrigger.addEventListener('click', () => {
-                log("Manual gaze trigger activated");
-                if (!startTime) {
-                    startTime = Date.now();
-                    log("Meditation started manually");
-                }
-                progress = (Date.now() - startTime) / 1000;
-                updateProgress();
+                log("Manual gaze check triggered");
+                checkGazeAndUpdateProgress();
             });
 
             startEyeTracking();
