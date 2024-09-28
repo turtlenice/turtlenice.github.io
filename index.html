@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meditation</title>
+    <title>MedX</title>
     <style>
         body, html {
             height: 100%;
@@ -98,15 +98,25 @@
         }
 
         function checkFaceDetection() {
-            const tracker = webgazer.getTracker();
-            if (tracker && tracker.getPositions()) {
-                log("Face detected");
-                progress += 1;
-                updateProgress();
-            } else {
-                log("Face not detected");
-                resetProgress();
+            const prediction = webgazer.getCurrentPrediction();
+            const isVideoPaused = webgazer.isVideoPaused();
+            
+            if (prediction && !isVideoPaused) {
+                const { x, y } = prediction;
+                const videoElement = document.querySelector('#webgazerVideoContainer video');
+                if (videoElement) {
+                    const { width, height } = videoElement.getBoundingClientRect();
+                    if (x > 0 && x < width && y > 0 && y < height) {
+                        log("Face detected within bounds");
+                        progress += 1;
+                        updateProgress();
+                        return;
+                    }
+                }
             }
+            
+            log("Face not detected or out of bounds");
+            resetProgress();
         }
 
         function startTracking() {
