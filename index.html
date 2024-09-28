@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Med</title>
+    <title>MedX</title>
     <style>
         body, html {
             height: 100%;
@@ -98,25 +98,18 @@
         }
 
         function checkFaceDetection() {
-            const prediction = webgazer.getCurrentPrediction();
-            const videoElement = document.querySelector('#webgazerVideoContainer video');
-            
-            if (prediction && videoElement) {
-                const { x, y } = prediction;
-                const { width, height } = videoElement.getBoundingClientRect();
-                
-                // Check if prediction is within 10% of the video edges
-                const margin = 0.1;
-                if (x > width * margin && x < width * (1 - margin) && 
-                    y > height * margin && y < height * (1 - margin)) {
-                    log(`Face detected at (${x.toFixed(2)}, ${y.toFixed(2)})`);
+            const tracker = webgazer.getTracker();
+            if (tracker && tracker.getCurrentPosition()) {
+                const currentPosition = tracker.getCurrentPosition();
+                if (currentPosition) {
+                    log(`Face detected at (${currentPosition.x.toFixed(2)}, ${currentPosition.y.toFixed(2)})`);
                     progress += 1;
                     updateProgress();
                     return;
                 }
             }
             
-            log("Face not detected or out of bounds");
+            log("Face not detected");
             resetProgress();
         }
 
