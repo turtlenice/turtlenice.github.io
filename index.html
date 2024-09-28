@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebGazer Direct Data Access</title>
+    <title>zWebGazer Simplified Gaze Tracking</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -36,51 +36,27 @@
     </style>
 </head>
 <body>
-    <h1>WebGazer Direct Data Access</h1>
-    <button id="toggle-gaze-tracking">Start Gaze Tracking</button>
+    <h1>WebGazer Simplified Gaze Tracking</h1>
+    <button id="start-tracking">Start Tracking</button>
     <div id="gaze-point"></div>
     <div id="debug"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/webgazer@3.3.0/dist/webgazer.min.js"></script>
     <script>
         const debugElement = document.getElementById('debug');
-        const toggleGazeTrackingButton = document.getElementById('toggle-gaze-tracking');
+        const startTrackingButton = document.getElementById('start-tracking');
         const gazePoint = document.getElementById('gaze-point');
-        let isTracking = false;
-        let trackingInterval;
 
         function log(message) {
             console.log(message);
             debugElement.innerHTML += message + '<br>';
-            debugElement.scrollTop = debugElement.scrollHeight;
+            debugElement.scrollHeight = debugElement.scrollHeight;
         }
 
-        function checkGaze() {
-            try {
-                // Directly access WebGazer's internal data
-                const currentGazeData = window.webgazer.getTracker().getEyePatches();
-                if (currentGazeData && currentGazeData.eyePatches) {
-                    const { x, y } = currentGazeData.eyePatches;
-                    gazePoint.style.left = `${x}px`;
-                    gazePoint.style.top = `${y}px`;
-                    log(`Gaze detected at (${x.toFixed(2)}, ${y.toFixed(2)})`);
-                    
-                    // Log additional data for debugging
-                    log(`Raw gaze data: ${JSON.stringify(currentGazeData)}`);
-                } else {
-                    log('No valid gaze data available in internal tracker');
-                }
-
-                // Also check getCurrentPrediction for comparison
-                const prediction = webgazer.getCurrentPrediction();
-                if (prediction && prediction.x !== undefined && prediction.y !== undefined) {
-                    log(`getCurrentPrediction: (${prediction.x.toFixed(2)}, ${prediction.y.toFixed(2)})`);
-                } else {
-                    log('No valid data from getCurrentPrediction');
-                }
-            } catch (error) {
-                log(`Error in gaze detection: ${error.message}`);
-            }
+        function updateGazePoint(x, y) {
+            gazePoint.style.left = `${x}px`;
+            gazePoint.style.top = `${y}px`;
+            log(`Gaze detected at (${x.toFixed(2)}, ${y.toFixed(2)})`);
         }
 
         function logWebGazerState() {
@@ -95,42 +71,46 @@
             }
         }
 
-        function initializeWebGazer() {
+        function startTracking() {
             log('Initializing WebGazer...');
-            webgazer.setGazeListener(() => {})
-                .begin()
-                .then(() => {
-                    log('WebGazer initialized successfully');
-                    toggleGazeTrackingButton.disabled = false;
-                    logWebGazerState();
-                })
-                .catch(error => {
-                    log(`Error initializing WebGazer: ${error}`);
-                });
+            webgazer.setGazeListener((data, elapsedTime) => {
+                if (data == null) {
+                    log('Gaze data is null');
+                } else {
+                    updateGazePoint(data.x, data.y);
+                }
+            })
+            .saveDataAcrossSessions(true)
+            .begin()
+            .then(() => {
+                log('WebGazer initialized successfully');
+                startTrackingButton.disabled = true;
+                logWebGazerState();
+            })
+            .catch(error => {
+                log(`Error initializing WebGazer: ${error}`);
+            });
 
-            webgazer.showVideo(true).showPredictionPoints(true);
+            webgazer.showVideoPreview(true)
+                    .showPredictionPoints(true)
+                    .applyKalmanFilter(true);
+            
+            // Set up an interval to log WebGazer state periodically
+            setInterval(logWebGazerState, 5000);
         }
 
-        function toggleGazeTracking() {
-            isTracking = !isTracking;
-            if (isTracking) {
-                log('Starting continuous gaze tracking...');
-                toggleGazeTrackingButton.textContent = 'Stop Gaze Tracking';
-                trackingInterval = setInterval(() => {
-                    checkGaze();
-                    logWebGazerState();
-                }, 1000); // Check every second
-            } else {
-                log('Stopping gaze tracking.');
-                toggleGazeTrackingButton.textContent = 'Start Gaze Tracking';
-                clearInterval(trackingInterval);
-            }
-        }
+        startTrackingButton.addEventListener('click', startTracking);
 
-        toggleGazeTrackingButton.addEventListener('click', toggleGazeTracking);
-        toggleGazeTrackingButton.disabled = true;
+        // Error handling for unhandled promise rejections
+        window.addEventListener('unhandledrejection', function(event) {
+            log(`Unhandled promise rejection: ${event.reason}`);
+        });
 
-        document.addEventListener('DOMContentLoaded', initializeWebGazer);
+        // Log any errors that occur
+        window.onerror = function(message, source, lineno, colno, error) {
+            log(`Error: ${message} at ${source}:${lineno}:${colno}`);
+            return false;
+        };
     </script>
 </body>
 </html>
