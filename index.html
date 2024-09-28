@@ -74,6 +74,9 @@
 
             // Initialize WebGazer
             function startEyeTracking() {
+
+                while (gazeDetected == false) {
+                    
                 console.log("started");
     webgazer.setGazeListener((data, elapsedTime) => {
         if (data == null) {
@@ -82,6 +85,12 @@
             resetProgress();
             return;
         }
+
+        if (x >= 0 && x <= window.innerWidth && y >= 0 && y <= window.innerHeight) {
+            gazeDetected = true;
+        }
+
+    }
 
         const x = data.x;
         const y = data.y;
