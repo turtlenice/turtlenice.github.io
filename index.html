@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MedX</title>
+    <title>Med</title>
     <style>
         body, html {
             height: 100%;
@@ -55,10 +55,6 @@
             left: 20px !important;
         }
         
-        body, html {
-            height: 100%;
-            /* ... rest of your styles ... */
-        }
         #trackingVideo {
             position: fixed;
             top: 20px;
@@ -100,6 +96,8 @@
         const video = document.getElementById('trackingVideo');
         const canvas = document.getElementById('canvasOverlay');
         const context = canvas.getContext('2d');
+
+        let detectionHistory = []; // Array to hold detection results with timestamps
 
         function log(message) {
             console.log(message);
@@ -165,9 +163,14 @@
             tracker.on('track', function(event) {
                 context.clearRect(0, 0, canvas.width, canvas.height);
 
+                const now = Date.now();
+
+                let faceDetected = false;
+
                 if (event.data.length === 0) {
-                    log("No face detected");
-                    resetProgress();
+                    // No face detected
+                    log("No face detected in tracker");
+                    faceDetected = false;
                 } else {
                     const rect = event.data[0];
                     // Draw rectangle around face (optional)
@@ -193,16 +196,54 @@
                     if (faceCenterX > leftBoundary && faceCenterX < rightBoundary &&
                         faceCenterY > topBoundary && faceCenterY < bottomBoundary) {
                         // Face is in the middle area
-                        log("Face detected in the middle area");
-                        progress += 1; // Increment by 1 second
-                        updateProgress();
+                        log("Face detected in the middle area in tracker");
+                        faceDetected = true;
                     } else {
                         // Face is detected but not in middle area
-                        log("Face detected but not in the middle area");
-                        resetProgress();
+                        log("Face detected but not in the middle area in tracker");
+                        faceDetected = false;
                     }
                 }
+
+                // Add the detection result with timestamp to the history
+                detectionHistory.push({ time: now, detected: faceDetected });
+
+                // Remove entries older than 2 seconds
+                while (detectionHistory.length > 0 && detectionHistory[0].time < now - 2000) {
+                    detectionHistory.shift();
+                }
             });
+
+            // Set up an interval that runs every second
+            meditationInterval = setInterval(function() {
+                const now = Date.now();
+
+                // Remove entries older than 2 seconds (in case there are any left)
+                while (detectionHistory.length > 0 && detectionHistory[0].time < now - 2000) {
+                    detectionHistory.shift();
+                }
+
+                const totalDetections = detectionHistory.length;
+                const faceDetectedCount = detectionHistory.filter(entry => entry.detected).length;
+                const noFaceDetectedCount = totalDetections - faceDetectedCount;
+
+                // Calculate the percentage of 'no face detected'
+                let noFacePercentage = 100;
+                if (totalDetections > 0) {
+                    noFacePercentage = (noFaceDetectedCount / totalDetections) * 100;
+                }
+
+                log(`No face detected percentage over last 2 seconds: ${noFacePercentage.toFixed(2)}%`);
+
+                if (noFacePercentage > 90) {
+                    // More than 90% of the time, no face was detected
+                    resetProgress();
+                } else {
+                    // Face was detected in at least 10% of the detections
+                    progress += 1; // Increment by 1 second
+                    updateProgress();
+                }
+            }, checkInterval); // 1000 milliseconds = 1 second
         }
 
         // Start WebGazer (for gaze tracking if needed)
